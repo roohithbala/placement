@@ -36,7 +36,7 @@ const ResetPasswordPage = () => {
 
       try {
         const response = await axios.get(
-          `http://localhost:5000/api/password-reset/verify-token/${token}`
+          `http://localhost:5000/api/auth/verify-reset-token/${token}`
         );
         if (response.data.success) {
           setTokenValid(true);
@@ -100,7 +100,7 @@ const ResetPasswordPage = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/password-reset/reset-password', {
+      const response = await axios.post('http://localhost:5000/api/auth/reset-password', {
         token,
         password: formData.password,
         confirmPassword: formData.confirmPassword,

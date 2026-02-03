@@ -17,7 +17,7 @@ const ForgotPasswordPage = () => {
     setResetLink('');
 
     try {
-      const response = await axios.post('http://localhost:5000/api/password-reset/forgot-password', {
+      const response = await axios.post('http://localhost:5000/api/auth/forgot-password', {
         email,
       });
 
