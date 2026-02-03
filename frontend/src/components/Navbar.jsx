@@ -15,6 +15,7 @@ function Navbar() {
   const [userPicture, setUserPicture] = useState('')
   const [workStatus, setWorkStatus] = useState(null)
   const dropdownRef = useRef(null)
+  const userRole = localStorage.getItem('userRole')
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -116,6 +117,7 @@ function Navbar() {
     localStorage.removeItem('userEmail')
     localStorage.removeItem('rememberedEmail')
     localStorage.removeItem('profileCompleted')
+    localStorage.removeItem('userRole')
     navigate('/login')
   }
 
@@ -126,7 +128,7 @@ function Navbar() {
           {/* Logo */}
           <button
             onClick={() => {
-              navigate('/home')
+              navigate(userRole === 'admin' ? '/admin' : '/home')
               setMobileMenuOpen(false)
             }}
             className="flex items-center gap-3 hover:opacity-90 transition-all"
@@ -139,7 +141,7 @@ function Navbar() {
 
           {/* Desktop Navigation */}
           <div className="hidden lg:flex gap-2">
-            {navLinks.map((link) => (
+            {userRole !== 'admin' && navLinks.map((link) => (
               <Link
                 key={link.path}
                 to={link.path}
@@ -167,13 +169,15 @@ function Navbar() {
             )} */}
 
             {/* Share Experience Button */}
-            <Link
-              to="/share-experience"
-              className="hidden md:flex px-6 py-2.5 rounded-lg bg-secondary text-white font-semibold hover:bg-accent transition-all shadow-md hover:shadow-lg flex items-center gap-2"
-            >
-              <FileText size={18} />
-              Share Experience
-            </Link>
+            {userRole !== 'admin' && (
+              <Link
+                to="/share-experience"
+                className="hidden md:flex px-6 py-2.5 rounded-lg bg-secondary text-white font-semibold hover:bg-accent transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+              >
+                <FileText size={18} />
+                Share Experience
+              </Link>
+            )}
 
             {/* Profile Dropdown */}
             <div className="relative" ref={dropdownRef}>
@@ -209,27 +213,31 @@ function Navbar() {
                       </div>
                     </>
                   )}
-                  <Link
-                    to="/profile"
-                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-background hover:text-secondary transition-all font-medium"
-                  >
-                    <User size={18} />
-                    My Profile
-                  </Link>
-                  {/* <Link
-                    to="/settings"
-                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-background hover:text-secondary transition-all font-medium"
-                  >
-                    <Settings size={18} />
-                    Settings
-                  </Link> */}
-                  <Link
-                    to="/my-experiences"
-                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-background hover:text-secondary transition-all font-medium"
-                  >
-                    <FileText size={18} />
-                    My Experiences
-                  </Link>
+                  {userRole !== 'admin' && (
+                    <>
+                      <Link
+                        to="/profile"
+                        className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-background hover:text-secondary transition-all font-medium"
+                      >
+                        <User size={18} />
+                        My Profile
+                      </Link>
+                      {/* <Link
+                        to="/settings"
+                        className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-background hover:text-secondary transition-all font-medium"
+                      >
+                        <Settings size={18} />
+                        Settings
+                      </Link> */}
+                      <Link
+                        to="/my-experiences"
+                        className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-background hover:text-secondary transition-all font-medium"
+                      >
+                        <FileText size={18} />
+                        My Experiences
+                      </Link>
+                    </>
+                  )}
                   <hr className="my-2 border-gray-200" />
                   <button
                     onClick={handleLogout}
@@ -253,7 +261,7 @@ function Navbar() {
         </div>
 
         {/* Mobile Navigation */}
-        {mobileMenuOpen && (
+        {mobileMenuOpen && userRole !== 'admin' && (
           <div className="lg:hidden mt-4 space-y-2 pb-4 border-t-2 border-accent pt-4">
             {navLinks.map((link) => (
               <Link

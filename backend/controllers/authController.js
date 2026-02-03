@@ -4,8 +4,8 @@ import crypto from 'crypto'
 import { validateSignupData, validateLoginData } from '../utils/validationUtils.js'
 import { sendPasswordResetEmail, sendPasswordResetSuccessEmail } from '../utils/emailService.js'
 
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' })
+const generateToken = (userId, role) => {
+  return jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' })
 }
 
 export const signup = async (req, res) => {
@@ -33,13 +33,14 @@ export const signup = async (req, res) => {
     const user = new User({ email: email.toLowerCase().trim(), password })
     await user.save()
 
-    const token = generateToken(user._id)
+    const token = generateToken(user._id, user.role)
 
     res.status(201).json({
       success: true,
       message: 'User created successfully',
       token,
       userId: user._id,
+      role: user.role,
     })
   } catch (error) {
     res.status(500).json({
@@ -79,7 +80,7 @@ export const login = async (req, res) => {
       })
     }
 
-    const token = generateToken(user._id)
+    const token = generateToken(user._id, user.role)
 
     res.status(200).json({
       success: true,
@@ -87,6 +88,7 @@ export const login = async (req, res) => {
       token,
       userId: user._id,
       profileCompleted: user.profileCompleted,
+      role: user.role,
     })
   } catch (error) {
     res.status(500).json({
@@ -98,10 +100,10 @@ export const login = async (req, res) => {
 
 export const authCallback = async (req, res) => {
   try {
-    const token = generateToken(req.user._id)
+    const token = generateToken(req.user._id, req.user.role)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
 
-    res.redirect(`${frontendUrl}/oauth-success?token=${token}&userId=${req.user._id}&profileCompleted=${req.user.profileCompleted}`)
+    res.redirect(`${frontendUrl}/oauth-success?token=${token}&userId=${req.user._id}&profileCompleted=${req.user.profileCompleted}&role=${req.user.role}`)
   } catch (error) {
     res.status(500).json({
       success: false,

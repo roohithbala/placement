@@ -19,6 +19,7 @@ function SignupPage() {
       if (response.data.success) {
         localStorage.setItem('authToken', response.data.token)
         localStorage.setItem('userId', response.data.userId)
+        localStorage.setItem('userRole', response.data.role)
         navigate('/profile-setup')
       }
     } catch (err) {

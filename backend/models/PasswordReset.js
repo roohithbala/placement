@@ -23,8 +23,7 @@ const passwordResetSchema = new mongoose.Schema({
   },
 });
 
-// Index for faster lookups
-passwordResetSchema.index({ token: 1 });
+// Index for faster lookups (token index already created by unique: true)
 passwordResetSchema.index({ email: 1 });
 
 export default mongoose.model('PasswordReset', passwordResetSchema);

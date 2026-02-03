@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect, useState } from 'react'
 import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
@@ -30,6 +31,20 @@ import SubmitOpportunityPage from './pages/SubmitOpportunityPage.jsx'
 import ContactPage from './pages/ContactPage.jsx'
 import { Contact } from 'lucide-react'
 import ScrollToTop from './components/ScrollToTop.jsx'
+
+// Root redirect component that checks user role
+function RootRedirect() {
+  const userRole = localStorage.getItem('userRole')
+  const token = localStorage.getItem('authToken')
+  
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+  
+  return userRole === 'admin' 
+    ? <Navigate to="/admin" replace />
+    : <Navigate to="/home" replace />
+}
 
 function App() {
   return (
@@ -133,11 +148,7 @@ function App() {
 
         <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
 
-        <Route path="/" element={
-          localStorage.getItem('userRole') === 'admin'
-            ? <Navigate to="/admin" replace />
-            : <Navigate to="/home" replace />
-        } />
+        <Route path="/" element={<RootRedirect />} />
       </Routes>
     </Router>
   )

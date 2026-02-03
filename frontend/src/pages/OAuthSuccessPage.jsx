@@ -9,13 +9,17 @@ const OAuthSuccessPage = () => {
     const token = searchParams.get('token')
     const userId = searchParams.get('userId')
     const profileCompleted = searchParams.get('profileCompleted')
+    const role = searchParams.get('role')
 
     if (token && userId) {
       localStorage.setItem('authToken', token)
       localStorage.setItem('userId', userId)
+      if (role) localStorage.setItem('userRole', role)
 
-      // Redirect based on profile completion status
-      if (profileCompleted === 'true') {
+      // Redirect based on role and profile completion status
+      if (role === 'admin') {
+        navigate('/admin')
+      } else if (profileCompleted === 'true') {
         navigate('/home')
       } else {
         navigate('/profile-setup')

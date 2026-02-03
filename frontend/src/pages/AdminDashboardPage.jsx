@@ -118,7 +118,14 @@ function AdminDashboardPage() {
             setStats(res.data)
             setError(null)
         } catch (err) {
-            setError('Live connection interrupted. Retrying...')
+            console.error('Stats fetch error:', err.response || err)
+            if (err.response?.status === 403) {
+                setError('Access denied. Please log out and log back in to refresh your session.')
+            } else if (err.response?.status === 401) {
+                setError('Session expired. Please log in again.')
+            } else {
+                setError('Live connection interrupted. Retrying...')
+            }
         } finally {
             setLoading(false)
             setIsPolling(false)
@@ -166,7 +173,14 @@ function AdminDashboardPage() {
             }
             setError(null)
         } catch (err) {
-            setError(`Failed to synchronize ${view} data.`)
+            console.error('Data fetch error:', err.response || err)
+            if (err.response?.status === 403) {
+                setError('Access denied. Please log out and log back in to refresh your session.')
+            } else if (err.response?.status === 401) {
+                setError('Session expired. Please log in again.')
+            } else {
+                setError(`Failed to synchronize ${view} data.`)
+            }
         } finally {
             setLoading(false)
             setIsPolling(false)

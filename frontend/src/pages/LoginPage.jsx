@@ -19,8 +19,11 @@ function LoginPage() {
       if (response.data.success) {
         localStorage.setItem('authToken', response.data.token)
         localStorage.setItem('userId', response.data.userId)
+        localStorage.setItem('userRole', response.data.role)
 
-        if (response.data.profileCompleted) {
+        if (response.data.role === 'admin') {
+          navigate('/admin')
+        } else if (response.data.profileCompleted) {
           navigate('/home')
         } else {
           navigate('/profile-setup')
