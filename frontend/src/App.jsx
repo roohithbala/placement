@@ -28,10 +28,12 @@ import ExperienceDetailPage from './pages/ExperienceDetailPage.jsx'
 import SubmitOpportunityPage from './pages/SubmitOpportunityPage.jsx'
 import ContactPage from './pages/ContactPage.jsx'
 import { Contact } from 'lucide-react'
+import ScrollToTop from './components/ScrollToTop.jsx'
 
 function App() {
   return (
     <Router>
+      <ScrollToTop />
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />

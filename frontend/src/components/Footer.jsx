@@ -23,8 +23,8 @@ function Footer() {
             <h3 className="font-bold text-lg text-primary mb-4">Quick Links</h3>
             <ul className="space-y-3">
               <li>
-                <Link to="/materials" className="text-muted-foreground hover:text-secondary text-sm font-medium transition-colors">
-                  Materials
+                <Link to="/experiences" className="text-muted-foreground hover:text-secondary text-sm font-medium transition-colors">
+                  Experiences
                 </Link>
               </li>
               <li>
