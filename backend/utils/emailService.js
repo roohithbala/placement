@@ -27,9 +27,9 @@ export const sendPasswordResetEmail = async (email, resetToken) => {
   const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`
 
   const mailOptions = {
-    from: `"Placement Support" <${process.env.EMAIL_USER?.toLowerCase().trim()}>`,
+    from: `"PlaceHub" <${process.env.EMAIL_USER?.toLowerCase().trim()}>`,
     to: email.toLowerCase().trim(),
-    subject: 'Password Reset Request - Placement Hub',
+    subject: 'Password Reset Request - PlaceHub',
     html: `
       <!DOCTYPE html>
       <html>
@@ -50,7 +50,7 @@ export const sendPasswordResetEmail = async (email, resetToken) => {
           </div>
           <div class="content">
             <p>Hello,</p>
-            <p>You requested to reset your password for your Placement Hub account. Click the button below to reset it:</p>
+            <p>You requested to reset your password for your PlaceHub account. Click the button below to reset it:</p>
             <div style="text-align: center;">
               <a href="${resetLink}" class="button">Reset Password</a>
             </div>
@@ -59,7 +59,7 @@ export const sendPasswordResetEmail = async (email, resetToken) => {
             <p><strong>This link will expire in 10 minutes.</strong></p>
             <p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
             <div class="footer">
-              <p>© 2026 BYTS. All rights reserved.</p>
+              <p>© 2026 PlaceHub. All rights reserved.</p>
             </div>
           </div>
         </div>
@@ -82,9 +82,9 @@ export const sendPasswordResetSuccessEmail = async (email) => {
   const transporter = createTransporter()
 
   const mailOptions = {
-    from: `"Placement Support" <${process.env.EMAIL_USER?.toLowerCase().trim()}>`,
+    from: `"PlaceHub" <${process.env.EMAIL_USER?.toLowerCase().trim()}>`,
     to: email.toLowerCase().trim(),
-    subject: 'Password Reset Successful - Placement Hub',
+    subject: 'Password Reset Successful - PlaceHub',
     html: `
       <!DOCTYPE html>
       <html>
@@ -105,10 +105,10 @@ export const sendPasswordResetSuccessEmail = async (email) => {
           <div class="content">
             <p>Hello,</p>
             <p>Your password has been successfully reset.</p>
-            <p>You can now log in to your Placement Hub account with your new password.</p>
+            <p>You can now log in to your PlaceHub account with your new password.</p>
             <p>If you did not make this change, please contact our support team immediately.</p>
             <div class="footer">
-              <p>© 2026 BYTS. All rights reserved.</p>
+              <p>© 2026 PlaceHub. All rights reserved.</p>
             </div>
           </div>
         </div>
