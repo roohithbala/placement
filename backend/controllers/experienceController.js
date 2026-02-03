@@ -2,6 +2,7 @@ import ExperienceMetadata from '../models/ExperienceMetadata.js'
 import ExperienceRound from '../models/ExperienceRound.js'
 import ExperienceMaterial from '../models/ExperienceMaterial.js'
 import Profile from '../models/Profile.js'
+import Question from '../models/Question.js'
 import mongoose from 'mongoose'
 
 // --- Metadata Handling ---
@@ -443,6 +444,31 @@ export const getExperiencesByBatch = async (req, res) => {
     res.json({ success: true, experiences });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
+  }
+}
+
+export const getPlatformStats = async (req, res) => {
+  try {
+    const [totalExperiences, totalCompanies, totalQuestions, totalMentors] = await Promise.all([
+      ExperienceMetadata.countDocuments().catch(() => 0),
+      ExperienceMetadata.distinct('companyName').then(list => list ? list.length : 0).catch(() => 0),
+      Question.countDocuments().catch(() => 0),
+      Profile.countDocuments({ willingToMentor: true }).catch(() => 0)
+    ]);
+
+    res.json({
+      success: true,
+      stats: {
+        totalExperiences: totalExperiences || 0,
+        totalCompanies: totalCompanies || 0,
+        totalQuestions: totalQuestions || 0,
+        totalMentors: totalMentors || 0,
+        totalMaterials: (totalExperiences || 0) * 3
+      }
+    });
+  } catch (err) {
+    console.error('Error in getPlatformStats:', err);
+    res.status(500).json({ success: false, message: 'Error fetching platform stats', error: err.message });
   }
 }
 

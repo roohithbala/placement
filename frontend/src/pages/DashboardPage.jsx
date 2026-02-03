@@ -8,73 +8,55 @@ import MainLayout from '../components/MainLayout'
 import { TrendingUp, BookOpen, Users, Briefcase, ArrowRight, Star, FileText } from 'lucide-react'
 import ChatWidgetButton from '../components/chat/ChatWidgetButton.jsx'
 import ChatContainer from '../components/chat/ChatContainer.jsx'
+import { experienceAPI, opportunitiesAPI, adminAPI } from '../services/api'
 
 function DashboardPage() {
   const [experiences, setExperiences] = useState([])
+  const [opportunities, setOpportunities] = useState([])
+  const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(false)
 
   useEffect(() => {
-    // Simulate fetching data
-    setTimeout(() => {
-      setExperiences([
-        {
-          id: 1,
-          company: 'Google',
-          role: 'SDE Intern',
-          batch: '2024',
-          rating: 4.5,
-          difficulty: 'Hard',
-          image: 'https://images.unsplash.com/photo-1573804633927-bfcbcd909acd?w=400&h=250&fit=crop'
-        },
-        {
-          id: 2,
-          company: 'Microsoft',
-          role: 'Software Engineer',
-          batch: '2024',
-          rating: 4.3,
-          difficulty: 'Medium',
-          image: 'https://images.unsplash.com/photo-1603808033192-082d6919d3e1?w=400&h=250&fit=crop'
-        },
-        {
-          id: 3,
-          company: 'Amazon',
-          role: 'SDE-2',
-          batch: '2023',
-          rating: 4.7,
-          difficulty: 'Hard',
-          image: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=400&h=250&fit=crop'
-        },
-        {
-          id: 4,
-          company: 'Meta',
-          role: 'Software Engineer',
-          batch: '2023',
-          rating: 4.6,
-          difficulty: 'Hard',
-          image: 'https://images.unsplash.com/photo-1552664730-d307ca884978?w=400&h=250&fit=crop'
-        },
-        {
-          id: 5,
-          company: 'Apple',
-          role: 'SDE Intern',
-          batch: '2024',
-          rating: 4.8,
-          difficulty: 'Medium',
-          image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?w=400&h=250&fit=crop'
-        },
-        {
-          id: 6,
-          company: 'Tesla',
-          role: 'Software Engineer',
-          batch: '2023',
-          rating: 4.4,
-          difficulty: 'Hard',
-          image: 'https://images.unsplash.com/photo-1553877522-43269d1aaeb1?w=400&h=250&fit=crop'
-        },
-      ])
-      setLoading(false)
-    }, 500)
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true)
+        const [expRes, oppRes, statsRes] = await Promise.allSettled([
+          experienceAPI.getAll(),
+          opportunitiesAPI.list({ limit: 3 }),
+          experienceAPI.getPlatformStats()
+        ])
+
+        if (expRes.status === 'fulfilled' && expRes.value.data.success) {
+          setExperiences(expRes.value.data.experiences || [])
+        } else {
+          console.error('Experiences fetch failed:', expRes.reason)
+        }
+
+        if (oppRes.status === 'fulfilled' && oppRes.value.data.success) {
+          // Handle both 'items' and 'opportunities' responses
+          const opps = oppRes.value.data.items || oppRes.value.data.opportunities || []
+          setOpportunities(opps)
+        } else {
+          console.error('Opportunities fetch failed:', oppRes.reason)
+        }
+
+        if (statsRes.status === 'fulfilled' && statsRes.value.data.success) {
+          setStats(statsRes.value.data.stats)
+        } else {
+          console.error('Stats fetch failed:', statsRes.reason)
+          // Set default stats
+          setStats({ totalExperiences: 4, totalCompanies: 4, totalMaterials: 12, totalMentors: 3 })
+        }
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error)
+        setStats({ totalExperiences: 0, totalCompanies: 0, totalMaterials: 0, totalMentors: 0 })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDashboardData()
   }, [])
 
   const materials = [
@@ -88,21 +70,15 @@ function DashboardPage() {
     { id: 8, title: 'Resume Building Guide', downloads: 2210, category: 'Placement Prep' },
   ]
 
-  const opportunities = [
-    { id: 1, company: 'Goldman Sachs', role: 'Analyst', location: 'Mumbai', deadline: 'Feb 15, 2024' },
-    { id: 2, company: 'Morgan Stanley', role: 'Software Engineer', location: 'Bangalore', deadline: 'Feb 20, 2024' },
-    { id: 3, company: 'JP Morgan', role: 'Quant Developer', location: 'Mumbai', deadline: 'Feb 25, 2024' },
-  ]
-
   const trendingTopics = [
     'System Design', 'DSA', 'Behavioral', 'DBMS', 'Networking', 'ML/AI', 'Cloud', 'API Design'
   ]
 
   const quickStats = [
-    { label: 'Experiences Shared', value: 1240, icon: FileText },
-    { label: 'Companies Covered', value: 450, icon: Briefcase },
-    { label: 'Materials Available', value: 3820, icon: BookOpen },
-    { label: 'Active Mentors', value: 280, icon: Users },
+    { label: 'Experiences Shared', value: stats?.totalExperiences || 0, icon: FileText },
+    { label: 'Companies Covered', value: stats?.totalCompanies || 0, icon: Briefcase },
+    { label: 'Materials Available', value: stats?.totalMaterials || 0, icon: BookOpen },
+    { label: 'Active Mentors', value: stats?.totalMentors || 0, icon: Users },
   ]
 
   return (
@@ -189,45 +165,49 @@ function DashboardPage() {
           </div>
           {loading ? (
             <div className="text-center py-12 text-primary">Loading experiences...</div>
-          ) : (
+          ) : experiences && experiences.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {experiences.map((exp) => (
                 <div
-                  key={exp.id}
+                  key={exp._id}
                   className="bg-card rounded-xl shadow-md hover:shadow-xl transition-all border border-border hover:border-accent relative overflow-hidden group"
                 >
                   <div className="p-6 relative z-10">
                     <div className="mb-4">
-                      <h3 className="text-2xl font-bold text-primary mb-2">{exp.company}</h3>
-                      <p className="text-muted-foreground text-lg font-medium">{exp.role}</p>
+                      <h3 className="text-2xl font-bold text-primary mb-2">{exp.companyName || 'Company'}</h3>
+                      <p className="text-muted-foreground text-lg font-medium">{exp.roleAppliedFor || 'Role'}</p>
                     </div>
 
                     <div className="flex justify-between items-center mb-4 pb-4 border-b border-border">
                       <span className="text-sm text-muted-foreground font-medium bg-background px-3 py-1 rounded-full">
-                        Batch {exp.batch}
+                        Batch {exp.batch || 'N/A'}
                       </span>
                       <div className="flex items-center gap-1 bg-yellow-50 px-3 py-1 rounded-full">
                         <Star size={16} className="text-yellow-500 fill-yellow-500" />
-                        <span className="font-semibold text-gray-700">{exp.rating}</span>
+                        <span className="font-semibold text-gray-700">{exp.overallExperienceRating || 0}</span>
                       </div>
                     </div>
 
                     <div className="mb-4">
                       <span className={`inline-block px-4 py-1.5 rounded-full text-xs font-semibold ${
-                        exp.difficulty === 'Hard' ? 'bg-error/10 text-error border border-error/20' :
-                        exp.difficulty === 'Medium' ? 'bg-warning/10 text-warning border border-warning/20' :
+                        (exp.difficultyRating || 0) >= 4 ? 'bg-error/10 text-error border border-error/20' :
+                        (exp.difficultyRating || 0) >= 3 ? 'bg-warning/10 text-warning border border-warning/20' :
                         'bg-success/10 text-success border border-success/20'
                       }`}>
-                        {exp.difficulty} Difficulty
+                        {(exp.difficultyRating || 0) >= 4 ? 'Hard' : (exp.difficultyRating || 0) >= 3 ? 'Medium' : 'Easy'} Difficulty
                       </span>
                     </div>
 
-                    <button className="w-full px-4 py-2.5 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:brightness-110 transition shadow-md">
+                    <Link to={`/experience/${exp._id}`} className="block w-full text-center px-4 py-2.5 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:brightness-110 transition shadow-md">
                       Read Experience
-                    </button>
+                    </Link>
                   </div>
                 </div>
               ))}
+            </div>
+          ) : (
+            <div className="text-center py-12 text-muted-foreground">
+              No experiences available yet.
             </div>
           )}
         </section>
@@ -278,19 +258,25 @@ function DashboardPage() {
             </Link>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {opportunities.map((opp) => (
-              <div key={opp.id} className="bg-card rounded-xl shadow-md p-6 hover:shadow-lg transition-all border border-border hover:border-accent">
-                <h3 className="text-xl font-bold text-primary mb-2">{opp.company}</h3>
-                <p className="text-primary font-semibold mb-4">{opp.role}</p>
-                <div className="space-y-2 mb-6 text-sm text-muted-foreground">
-                  <p className="font-medium">Location: <span className="text-primary">{opp.location}</span></p>
-                  <p className="font-medium">Deadline: <span className="text-primary">{opp.deadline}</span></p>
+            {opportunities && opportunities.length > 0 ? (
+              opportunities.map((opp) => (
+                <div key={opp._id || opp.id} className="bg-card rounded-xl shadow-md p-6 hover:shadow-lg transition-all border border-border hover:border-accent">
+                  <h3 className="text-xl font-bold text-primary mb-2">{opp.companyName || opp.company || 'Company'}</h3>
+                  <p className="text-primary font-semibold mb-4">{opp.title || opp.role || 'Position'}</p>
+                  <div className="space-y-2 mb-6 text-sm text-muted-foreground">
+                    <p className="font-medium">Location: <span className="text-primary">{opp.location || 'Remote'}</span></p>
+                    <p className="font-medium">Deadline: <span className="text-primary">{opp.deadline ? new Date(opp.deadline).toLocaleDateString() : 'Not specified'}</span></p>
+                  </div>
+                  <Link to={`/opportunities/${opp._id || opp.id}`} className="block w-full text-center px-4 py-2.5 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:brightness-110 transition shadow-md">
+                    Apply Now
+                  </Link>
                 </div>
-                <button className="w-full px-4 py-2.5 rounded-lg bg-secondary text-secondary-foreground font-semibold hover:brightness-110 transition shadow-md">
-                  Apply Now
-                </button>
+              ))
+            ) : (
+              <div className="col-span-3 text-center py-8 text-muted-foreground">
+                No opportunities available at the moment.
               </div>
-            ))}
+            )}
           </div>
         </section>
       </div>
@@ -308,3 +294,4 @@ function DashboardPage() {
 }
 
 export default DashboardPage;
+

@@ -14,6 +14,7 @@ import {
   getExperiencesByBatch,
   getMetadataOptions,
   browseExperiences,
+  getPlatformStats,
 } from '../controllers/experienceController.js'
 
 const router = express.Router()
@@ -26,6 +27,7 @@ router.post('/submit/:experienceId', authMiddleware, submitExperience)
 
 router.get('/my', authMiddleware, getUserExperiences)
 router.get('/draft', authMiddleware, getLatestDraft) // Keep for backward compat / smart loading
+router.get('/stats', authMiddleware, getPlatformStats)
 router.delete('/:id', authMiddleware, deleteExperience)
 
 // Public routes

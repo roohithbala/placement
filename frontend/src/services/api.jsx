@@ -55,6 +55,7 @@ export const experienceAPI = {
   getDraft: () => api.get('/experience/draft'),
   getOptions: () => api.get('/experience/options'),
   browse: (params) => api.get('/experience/browse', { params }),
+  getPlatformStats: () => api.get('/experience/stats'),
 }
 
 // Message APIs
@@ -156,3 +157,4 @@ export const opportunitiesAPI = {
 }
 
 export default api
+
