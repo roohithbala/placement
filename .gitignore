@@ -26,3 +26,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ignore uploaded documents (stored at runtime)
+uploads/
+backend/uploads/
