@@ -21,6 +21,8 @@ import {
     Calendar,
     Settings,
     X,
+    Menu,
+    Check,
     Send,
     LineChart as LineChartIcon,
     Briefcase,
@@ -34,7 +36,8 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
     PieChart, Pie, Cell, Legend, LineChart, Line, AreaChart, Area
 } from 'recharts'
-import { adminAPI, authAPI } from '../services/api'
+import { adminAPI, authAPI, BACKEND_BASE_URL } from '../services/api'
+import OpportunityEditor from '../components/OpportunityEditor.jsx'
 import './Admin.css'
 
 const COLORS = ['#1e40af', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -59,6 +62,7 @@ function AdminDashboardPage() {
     const [page, setPage] = useState(1)
     const [yearFilter, setYearFilter] = useState('')
     const [diffFilter, setDiffFilter] = useState('')
+    const [statusFilter, setStatusFilter] = useState('All') // for both problems and opportunities
     const [pagination, setPagination] = useState({ total: 0, page: 1, pages: 1 })
 
     // Deletion Reasoning
@@ -74,7 +78,7 @@ function AdminDashboardPage() {
     const [systemLogs, setSystemLogs] = useState([])
     const [logLevelFilter, setLogLevelFilter] = useState('All')
 
-    // Sync state to MongoDB
+    // Sync state to MongoDB (route not implemented yet, ignore 404)
     useEffect(() => {
         if (preferences) {
             const updatePrefs = async () => {
@@ -84,12 +88,14 @@ function AdminDashboardPage() {
                         adminDashboardSubView: subView
                     })
                 } catch (err) {
+                    // backend route missing; ignore
                     console.error('Failed to sync preferences:', err)
                 }
             }
             updatePrefs()
         }
     }, [view, subView, preferences])
+
 
     // Load preferences on mount
     useEffect(() => {
@@ -99,7 +105,10 @@ function AdminDashboardPage() {
                 const prefs = res.data.user.preferences
                 if (prefs) {
                     setPreferences(prefs)
-                    if (prefs.adminDashboardView) setView(prefs.adminDashboardView)
+                    if (prefs.adminDashboardView) {
+                    const normalized = prefs.adminDashboardView === 'problems' ? 'experiences' : prefs.adminDashboardView
+                    setView(normalized)
+                }
                     if (prefs.adminDashboardSubView) setSubView(prefs.adminDashboardSubView)
                 }
             } catch (err) {
@@ -132,6 +141,44 @@ function AdminDashboardPage() {
         }
     }
 
+    // opportunity moderation helpers
+    const handleApproveOpp = async (id) => {
+        try {
+            await adminAPI.approveOpportunity(id)
+            fetchData()
+        } catch (err) {
+            console.error('Approve opportunity failed', err)
+        }
+    }
+
+    const handleRejectOpp = async (id) => {
+        try {
+            await adminAPI.rejectOpportunity(id)
+            fetchData()
+        } catch (err) {
+            console.error('Reject opportunity failed', err)
+        }
+    }
+
+    // experience moderation helpers
+    const handleApproveExp = async (id) => {
+        try {
+            await adminAPI.setExperienceStatus(id, 'approved')
+            fetchData()
+        } catch (err) {
+            console.error('Approve experience failed', err)
+        }
+    }
+
+    const handleRejectExp = async (id) => {
+        try {
+            await adminAPI.setExperienceStatus(id, 'rejected')
+            fetchData()
+        } catch (err) {
+            console.error('Reject experience failed', err)
+        }
+    }
+
     const fetchData = useCallback(async (silent = false) => {
         try {
             if (!silent) setLoading(true)
@@ -146,9 +193,17 @@ function AdminDashboardPage() {
                 res = await adminAPI.getStudents(params)
             }
             else if (view === 'placed') res = await adminAPI.getPlacedStudents(params)
-            else if (view === 'problems') {
+            else if (view === 'experiences') {
                 if (diffFilter) params.difficulty = diffFilter
-                res = await adminAPI.getProblems(params)
+                if (statusFilter && statusFilter !== 'All') params.status = statusFilter.toLowerCase()
+                res = await adminAPI.getExperiences(params)
+            }
+            else if (view === 'opportunities') {
+                if (statusFilter && statusFilter !== 'All') {
+                    if (statusFilter.toLowerCase() === 'approved') params.approved = true
+                    else if (statusFilter.toLowerCase() === 'pending') params.approved = false
+                }
+                res = await adminAPI.getOpportunities(params)
             }
             else if (view === 'meetings') {
                 const mRes = await adminAPI.getMeetings()
@@ -168,7 +223,13 @@ function AdminDashboardPage() {
             }
 
             if (res) {
-                setListData(res.data.students || res.data.problems || [])
+                if (view === 'opportunities') {
+                    setListData(res.data.opportunities || [])
+                } else if (view === 'experiences') {
+                    setListData(res.data.experiences || res.data.problems || [])
+                } else {
+                    setListData(res.data.students || [])
+                }
                 setPagination(res.data.pagination)
             }
             setError(null)
@@ -185,7 +246,7 @@ function AdminDashboardPage() {
             setLoading(false)
             setIsPolling(false)
         }
-    }, [view, page, search, yearFilter, diffFilter])
+    }, [view, page, search, yearFilter, diffFilter, statusFilter])
 
     // Real-time Polling Setup
     useEffect(() => {
@@ -205,18 +266,25 @@ function AdminDashboardPage() {
     }, [view, fetchData])
 
     const loadDetail = async (type, id) => {
+        console.log('loading detail', { type, id })
+        setError(null)
         try {
             setLoading(true)
             let res;
-            if (type === 'problem') res = await adminAPI.getProblemDetail(id)
+            if (type === 'problem') res = await adminAPI.getExperienceDetail(id)
+            else if (type === 'opportunity') res = await adminAPI.getOpportunityDetail(id)
             else res = await adminAPI.getStudentDetail(id)
 
+            console.log('detail response', res && res.data)
             if (res) {
                 setSelectedItem(res.data)
-                setSubView(type === 'problem' ? 'problem_detail' : 'student_detail')
+                if (type === 'problem') setSubView('problem_detail')
+                else if (type === 'opportunity') setSubView('opportunity_detail')
+                else setSubView('student_detail')
             }
         } catch (err) {
-            setError('Could not retrieve details.')
+            console.error('Detail load error:', err.response || err)
+            setError(err.response?.data?.message || 'Could not retrieve details.')
         } finally {
             setLoading(false)
         }
@@ -264,7 +332,8 @@ function AdminDashboardPage() {
             { id: 'users', label: 'Talent Pool', value: stats.summary.totalUsers, icon: Users, color: '#1e40af' },
             { id: 'students', label: 'Students', value: stats.summary.totalStudents, icon: GraduationCap, color: '#3b82f6' },
             { id: 'placed', label: 'Placed', value: stats.summary.totalPlacedStudents, icon: UserCheck, color: '#10b981' },
-            { id: 'problems', label: 'Problems', value: stats.summary.totalProblems, icon: FileText, color: '#f59e0b' },
+            { id: 'experiences', label: 'Experiences', value: stats.summary.totalExperiences, icon: FileText, color: '#f59e0b' },
+            { id: 'opportunities', label: 'Opportunities', value: stats.summary.totalPendingOpportunities, icon: Briefcase, color: '#8b5cf6' },
         ]
 
         return (
@@ -298,7 +367,7 @@ function AdminDashboardPage() {
                         <h3><LineChartIcon size={20} className="text-secondary" /> Contribution Activity</h3>
                         <div className="h-[300px]">
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={stats.charts.problemsOverTime}>
+                                <AreaChart data={stats.charts.experiencesOverTime}>
                                     <defs>
                                         <linearGradient id="colorUploads" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3} />
@@ -399,7 +468,8 @@ function AdminDashboardPage() {
     )
 
     const renderTable = () => {
-        const isProblemView = view === 'problems'
+        const isProblemView = view === 'experiences'
+        const isOpportunityView = view === 'opportunities'
         return (
             <div className="modern-table-card animate-in fade-in duration-500">
                 <div className="table-toolbar">
@@ -407,22 +477,35 @@ function AdminDashboardPage() {
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
                         <input
                             type="text"
-                            placeholder={`Live filter ${view}...`}
+                            placeholder={`Live filter ${view === 'experiences' ? 'experiences' : view}...`}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                     </div>
                     <div className="toolbar-filters">
+                        {/* year filter for student list */}
                         {view === 'students' && (
                             <select className="neo-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
                                 <option value="">Passing Out Year</option>
                                 {[2022, 2023, 2024, 2025, 2026, 2027, 2028].map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
                         )}
+
+                        {/* status filter for problems & opportunities */}
+                        {(isProblemView || isOpportunityView) && (
+                            <select className="neo-select" value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}>
+                                <option value="All">All</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        )}
+
+                        {/* rating filter for experiences */}
                         {isProblemView && (
                             <select className="neo-select" value={diffFilter} onChange={(e) => setDiffFilter(e.target.value)}>
-                                <option value="">Difficulty</option>
-                                {['Easy', 'Medium', 'Hard'].map(d => <option key={d} value={d}>{d}</option>)}
+                                <option value="">Rating</option>
+                                {[1,2,3,4,5].map(r => <option key={r} value={r}>{r}</option>)}
                             </select>
                         )}
                         <button className="pro-btn" onClick={() => fetchData(false)}><RefreshCw size={20} /></button>
@@ -434,8 +517,15 @@ function AdminDashboardPage() {
                         <thead>
                             <tr>
                                 <th>Resource</th>
-                                <th>{isProblemView ? 'Classification' : (view === 'placed' ? 'Company' : 'Passing Year')}</th>
-                                <th>Domain</th>
+                                <th>
+                                    {isProblemView && 'Company'}
+                                    {isOpportunityView && 'Company'}
+                                    {!isProblemView && !isOpportunityView && (view === 'placed' ? 'Company' : 'Passing Year')}
+                                </th>
+                                <th>
+                                    {isProblemView ? 'Role' : (isOpportunityView ? 'Type' : 'Domain')}
+                                </th>
+                                {(isProblemView || isOpportunityView) && <th>Status</th>}
                                 <th className="text-right">Management</th>
                             </tr>
                         </thead>
@@ -444,27 +534,83 @@ function AdminDashboardPage() {
                                 <tr key={item._id}>
                                     <td>
                                         <div className="user-cell">
-                                            <div className="user-avatar-mini">{(item.fullName || item.title || '?')[0]}</div>
+                                            <div className="user-avatar-mini">{((item.profile?.fullName || item.companyName || item.title || '?')[0])}</div>
                                             <div className="user-info-text text-sm">
-                                                <span className="font-bold">{item.fullName || item.title}</span>
-                                                <span className="text-slate-400 font-medium">{item.collegeEmail || item.userId?.email}</span>
+                                                <span className="font-bold">{item.profile?.fullName || item.companyName || item.title || 'N/A'}</span>
+                                                {isOpportunityView && <span className="text-slate-400 font-medium">{item.companyName}</span>}
+                                                {!isOpportunityView && isProblemView && <span className="text-slate-400 font-medium">{item.roleAppliedFor || ''}</span>}
+                                                {!isOpportunityView && !isProblemView && <span className="text-slate-400 font-medium">{item.collegeEmail || item.userId?.email}</span>}
                                             </div>
                                         </div>
                                     </td>
                                     <td>
-                                        <span className="font-bold text-primary">{isProblemView ? item.difficulty : (item.company || item.batch || item.year)}</span>
+                                        <span className="font-bold text-primary">
+                                            {isProblemView ? (item.companyName || 'N/A') : isOpportunityView ? item.companyName : (item.company || item.batch || item.year)}
+                                        </span>
                                     </td>
                                     <td>
-                                        <span className="text-slate-400 font-bold">{item.domain || item.role || item.branch}</span>
+                                        <span className="text-slate-400 font-bold">
+                                            {isProblemView ? (item.roleAppliedFor || '') : isOpportunityView ? formatLabel(item.opportunityType) : (item.domain || item.role || item.branch)}
+                                        </span>
                                     </td>
+                                    {(isProblemView || isOpportunityView) && (
+                                    <td>
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${item.status === 'approved' || item.approved === true ? 'bg-green-50 text-green-600' : item.status === 'pending' || item.approved === false ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600'}`}>
+                                            {item.status ? item.status.charAt(0).toUpperCase() + item.status.slice(1) : (item.approved ? 'Approved' : 'Pending')}
+                                        </span>
+                                    </td>)}
                                     <td className="text-right">
                                         <div className="pro-actions justify-end">
-                                            <button className="pro-btn" onClick={() => loadDetail(isProblemView ? 'problem' : 'student', item._id)}><Eye size={18} /></button>
-                                            <button className="pro-btn text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete({
-                                                type: isProblemView ? 'problem' : 'student',
-                                                id: item._id,
-                                                name: item.fullName || item.title
-                                            })}><Trash2 size={18} /></button>
+                                            {isOpportunityView ? (
+                                                <>
+                                                    <button className="pro-btn" onClick={() => loadDetail('opportunity', item._id)}>
+                                                        <Eye size={18} />
+                                                    </button>
+                                                    {/* show approve/reject only for pending items */}
+                                                    {/* only show approve/reject when explicitly unapproved */}
+                                                    {(item.approved === false && item.status !== 'closed') && (
+                                                        <>
+                                                            <button
+                                                                className="pro-btn text-green-500 hover:bg-green-50"
+                                                                onClick={() => isProblemView ? handleApproveExp(item._id) : handleApproveOpp(item._id)}
+                                                            >
+                                                                <Check size={18} />
+                                                            </button>
+                                                            <button
+                                                                className="pro-btn text-red-500 hover:bg-red-50"
+                                                                onClick={() => isProblemView ? handleRejectExp(item._id) : handleRejectOpp(item._id)}
+                                                            >
+                                                                <X size={18} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button className="pro-btn" onClick={() => loadDetail(isProblemView ? 'problem' : 'student', item._id)}><Eye size={18} /></button>
+                                                    {isProblemView && item.status === 'pending' && (
+                                                        <>
+                                                            <button
+                                                                className="pro-btn text-green-500 hover:bg-green-50"
+                                                                onClick={() => handleApproveExp(item._id)}
+                                                            >
+                                                                <Check size={18} />
+                                                            </button>
+                                                            <button
+                                                                className="pro-btn text-red-500 hover:bg-red-50"
+                                                                onClick={() => handleRejectExp(item._id)}
+                                                            >
+                                                                <X size={18} />
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    <button className="pro-btn text-red-500 hover:bg-red-50" onClick={() => setConfirmDelete({
+                                                        type: isProblemView ? 'problem' : 'student',
+                                                        id: item._id,
+                                                        name: item.fullName || item.title
+                                                    })}><Trash2 size={18} /></button>
+                                                </>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -594,9 +740,49 @@ function AdminDashboardPage() {
         navigate('/login')
     }
 
+    // utility for humanizing enum values
+    const formatLabel = (value = '') => {
+        if (!value) return ''
+        return value.replace(/\b\w/g, (char) => char.toUpperCase())
+    }
+
+    // helper to download a material object with fileContent
+    const downloadMaterial = (mat) => {
+        // if server provided a filePath (static URL), just open it
+        if (mat.filePath) {
+            const url = mat.filePath.startsWith('http') ? mat.filePath : BACKEND_BASE_URL + mat.filePath
+            window.open(url, '_blank', 'noopener')
+            return
+        }
+
+        if (!mat.fileContent || !mat.fileName) return
+        // convert base64 to blob and download (fallback for legacy entries)
+        try {
+            const byteString = atob(mat.fileContent.split(',')[1] || mat.fileContent)
+            const ab = new ArrayBuffer(byteString.length)
+            const ia = new Uint8Array(ab)
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i)
+            }
+            const blob = new Blob([ab], { type: mat.fileType || 'application/octet-stream' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = mat.fileName
+            document.body.appendChild(a)
+            a.click()
+            document.body.removeChild(a)
+            URL.revokeObjectURL(url)
+        } catch (e) {
+            console.error('Failed to download material', e)
+        }
+    }
+
+    const [mobileNavOpen, setMobileNavOpen] = useState(false)
+
     const NavTab = ({ id, label, icon: Icon }) => (
         <button
-            onClick={() => { setView(id); setSubView(null) }}
+            onClick={() => { setView(id); setSubView(null); setMobileNavOpen(false) }}
             className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold transition-all ${view === id
                 ? 'bg-primary text-white shadow-md'
                 : 'text-slate-500 hover:bg-slate-100'
@@ -631,9 +817,32 @@ function AdminDashboardPage() {
                     {/* Navigation Tabs */}
                     <div className="hidden md:flex items-center gap-2 bg-slate-50 p-1 rounded-2xl border border-slate-100">
                         <NavTab id="overview" label="Dashboard" icon={LayoutDashboard} />
+                        <NavTab id="users" label="Users" icon={Users} />
+                        <NavTab id="students" label="Students" icon={GraduationCap} />
+                        <NavTab id="placed" label="Placed" icon={UserCheck} />
+                        <NavTab id="experiences" label="Experiences" icon={FileText} />
+                        <NavTab id="opportunities" label="Opportunities" icon={Briefcase} />
                         <NavTab id="meetings" label="Sessions" icon={Calendar} />
                         <NavTab id="logs" label="System Logs" icon={Activity} />
                     </div>
+                    {/* mobile hamburger */}
+                    <div className="md:hidden">
+                        <button onClick={() => setMobileNavOpen(!mobileNavOpen)} className="p-2 rounded-md border border-slate-200">
+                            <Menu size={20} />
+                        </button>
+                    </div>
+                    {mobileNavOpen && (
+                        <div className="absolute top-full left-0 w-full bg-white shadow-md z-50 py-2">
+                            <NavTab id="overview" label="Dashboard" icon={LayoutDashboard} />
+                            <NavTab id="users" label="Users" icon={Users} />
+                            <NavTab id="students" label="Students" icon={GraduationCap} />
+                            <NavTab id="placed" label="Placed" icon={UserCheck} />
+                            <NavTab id="experiences" label="Experiences" icon={FileText} />
+                            <NavTab id="opportunities" label="Opportunities" icon={Briefcase} />
+                            <NavTab id="meetings" label="Sessions" icon={Calendar} />
+                            <NavTab id="logs" label="System Logs" icon={Activity} />
+                        </div>
+                    )}
 
                     {/* Right Side / Profile */}
                     <div className="flex items-center gap-4">
@@ -681,7 +890,7 @@ function AdminDashboardPage() {
                         {view === 'users' && 'User Management'}
                         {view === 'students' && 'Student Directory'}
                         {view === 'placed' && 'Placement Records'}
-                        {view === 'problems' && 'Problem Repository'}
+                        {view === 'problems' && 'Experiences'}
                     </h2>
                     <p className="text-slate-500 font-medium">
                         {view === 'overview' && 'Welcome back. Here is what is happening today.'}
@@ -721,17 +930,21 @@ function AdminDashboardPage() {
                                     <div className="bg-gradient-to-r from-primary to-secondary p-10 text-white">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <h2 className="text-4xl font-black mb-2">{selectedItem?.profile?.fullName || selectedItem?.problem?.title}</h2>
+                                                <h2 className="text-4xl font-black mb-2">
+                                                    {subView === 'student_detail'
+                                                        ? selectedItem?.profile?.fullName
+                                                        : selectedItem?.problem?.companyName || selectedItem?.profile?.fullName || 'Experience'}
+                                                </h2>
                                                 <p className="opacity-80 font-bold flex items-center gap-2">
                                                     {subView === 'student_detail' ? (
                                                         <><GraduationCap size={18} /> {selectedItem?.profile?.branch} · {selectedItem?.profile?.batch} Batch</>
                                                     ) : (
-                                                        <><FileText size={18} /> {selectedItem?.problem?.difficulty} Difficulty · {selectedItem?.problem?.domain}</>
+                                                        <><FileText size={18} /> {selectedItem?.problem?.roleAppliedFor || 'Role'} · Rating: {selectedItem?.problem?.difficultyRating || 'N/A'}</>
                                                     )}
                                                 </p>
                                             </div>
                                             <div className="px-6 py-2 bg-white/20 backdrop-blur rounded-full font-black uppercase tracking-widest text-xs">
-                                                {subView === 'student_detail' ? selectedItem?.profile?.placementStatus : 'Problem Case'}
+                                                {subView === 'student_detail' ? selectedItem?.profile?.placementStatus : subView === 'problem_detail' ? (selectedItem?.problem?.status ? selectedItem.problem.status.charAt(0).toUpperCase() + selectedItem.problem.status.slice(1) : 'Unknown') : subView === 'opportunity_detail' ? (selectedItem?.opportunity?.approved ? 'Approved' : selectedItem?.opportunity?.status === 'closed' ? 'Closed' : 'Pending') : ''}
                                             </div>
                                         </div>
                                     </div>
@@ -758,13 +971,126 @@ function AdminDashboardPage() {
                                                     </div>
                                                 </div>
                                             </div>
-                                        ) : (
+                                        ) : subView === 'problem_detail' ? (
                                             <div className="space-y-8">
+                                                {/* admin action buttons */}
+                                                {selectedItem?.problem?.status === 'pending' && (
+                                                    <div className="flex gap-4">
+                                                        <button
+                                                            className="pro-btn text-green-500 hover:bg-green-50"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await adminAPI.setExperienceStatus(selectedItem.problem._id, 'approved')
+                                                                    setSelectedItem(prev => ({ ...prev, problem: { ...prev.problem, status: 'approved' } }))
+                                                                    fetchData()
+                                                                } catch (err) {
+                                                                    console.error(err)
+                                                                    alert('Failed to approve')
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Check size={18} /> Approve
+                                                        </button>
+                                                        <button
+                                                            className="pro-btn text-red-500 hover:bg-red-50"
+                                                            onClick={async () => {
+                                                                try {
+                                                                    await adminAPI.setExperienceStatus(selectedItem.problem._id, 'rejected')
+                                                                    setSelectedItem(prev => ({ ...prev, problem: { ...prev.problem, status: 'rejected' } }))
+                                                                    fetchData()
+                                                                } catch (err) {
+                                                                    console.error(err)
+                                                                    alert('Failed to reject')
+                                                                }
+                                                            }}
+                                                        >
+                                                            <X size={18} /> Reject
+                                                        </button>
+                                                    </div>
+                                                )}
+
                                                 <div className="bg-slate-50 p-8 rounded-3xl border border-slate-100 text-slate-700 font-bold leading-relaxed whitespace-pre-wrap">
                                                     {selectedItem?.problem?.content}
                                                 </div>
+                                                {selectedItem?.problem?.rounds && (
+                                                    <div>
+                                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Rounds</h3>
+                                                        <ul className="list-decimal list-inside">
+                                                            {selectedItem.problem.rounds.map((r, idx) => (
+                                                                <li key={idx}>
+                                                                    {typeof r === 'object' ? (r.title || JSON.stringify(r)) : r}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {selectedItem?.problem?.materials && (
+                                                    <div>
+                                                        <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">Materials</h3>
+                                                        {selectedItem.problem.materials.length === 0 ? (
+                                                            <p className="text-sm text-slate-500">No materials provided.</p>
+                                                        ) : (
+                                                            <ul className="list-disc list-inside space-y-1">
+                                                                {selectedItem.problem.materials.map((m, idx) => {
+                                                                    if (typeof m === 'object') {
+                                                                        const { title, url, description, type, fileName, fileContent } = m;
+                                                                        const hasContent = title || url || description || fileName;
+                                                                        return (
+                                                                            <li key={idx} className="text-sm flex flex-col gap-1">
+                                                                                {hasContent ? (
+                                                                                    <> 
+                                                                                        {title && <span className="font-bold">{title}</span>}
+                                                                                        {url && (
+                                                                                            <a href={url} target="_blank" rel="noopener noreferrer" className="ml-2 text-blue-600 underline">
+                                                                                                link
+                                                                                            </a>
+                                                                                        )}
+                                                                                        {description && (
+                                                                                            <span className="block mt-1 text-sm text-slate-700">
+                                                                                                {description}
+                                                                                            </span>
+                                                                                        )}
+                                                                                        {fileName && (
+                                                                                            <button
+                                                                                                className="mt-1 text-sm text-indigo-600 underline"
+                                                                                                onClick={() => downloadMaterial(m)}
+                                                                                            >
+                                                                                                Download {fileName}
+                                                                                            </button>
+                                                                                        )}
+                                                                                    </>
+                                                                                ) : (
+                                                                                    type ? <em className="text-slate-500">{`(${type})`}</em> : null
+                                                                                )}
+                                                                            </li>
+                                                                        )
+                                                                    }
+                                                                    /* simple string entry */
+                                                                    return <li key={idx} className="text-sm">{m}</li>
+                                                                })}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        ) : subView === 'opportunity_detail' ? (
+                                            <div className="space-y-6">
+                                                <h3 className="text-lg font-black text-primary">Edit Opportunity</h3>
+                                                <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                                                    <OpportunityEditor opportunity={selectedItem?.opportunity} onSave={async (updates) => {
+                                                        try {
+                                                            const res = await adminAPI.updateOpportunity(selectedItem.opportunity._id, updates)
+                                                            setSelectedItem({ opportunity: res.data.opportunity })
+                                                            fetchData()
+                                                            alert('Opportunity updated')
+                                                        } catch (err) {
+                                                            console.error(err)
+                                                            alert('Failed to save')
+                                                        }
+                                                    }} />
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </div>
                                 </div>
                             )}

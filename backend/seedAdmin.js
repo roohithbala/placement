@@ -45,18 +45,22 @@ async function seedAdminUser() {
         await mongoose.connect(process.env.MONGODB_URI)
         console.log('✅ Connected to MongoDB')
 
+        // credentials may be overridden via env or command line
+        const adminEmail = process.env.SEED_ADMIN_EMAIL || 'admin@kongu.edu'
+        const adminPassword = process.env.SEED_ADMIN_PASS || 'admin@123'
+
         // Check if admin already exists
-        const existingAdmin = await User.findOne({ email: 'admin' })
+        const existingAdmin = await User.findOne({ email: adminEmail })
 
         if (existingAdmin) {
-            console.log('ℹ️  Admin user already exists')
+            console.log(`ℹ️  Admin user already exists (${adminEmail})`)
 
             // Update password if needed
             const salt = await bcrypt.genSalt(10)
-            const hashedPassword = await bcrypt.hash('admin@123', salt)
+            const hashedPassword = await bcrypt.hash(adminPassword, salt)
 
             await User.updateOne(
-                { email: 'admin' },
+                { email: adminEmail },
                 {
                     password: hashedPassword,
                     role: 'admin',
@@ -67,10 +71,10 @@ async function seedAdminUser() {
         } else {
             // Create new admin user
             const salt = await bcrypt.genSalt(10)
-            const hashedPassword = await bcrypt.hash('admin@123', salt)
+            const hashedPassword = await bcrypt.hash(adminPassword, salt)
 
             const adminUser = new User({
-                email: 'admin',
+                email: adminEmail,
                 password: hashedPassword,
                 role: 'admin',
                 profileCompleted: true,
@@ -86,8 +90,8 @@ async function seedAdminUser() {
         }
 
         console.log('\n📋 Admin Credentials:')
-        console.log('   Email: admin')
-        console.log('   Password: admin@123')
+        console.log(`   Email: ${adminEmail}`)
+        console.log(`   Password: ${adminPassword}`)
         console.log('   Role: admin')
         console.log('\n🎯 You can now login with these credentials!')
 

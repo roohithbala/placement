@@ -58,20 +58,34 @@ function ExperienceMaterialsForm() {
     }
   }
 
-  // Auto-save logic
+  // Auto-save logic (only when there's meaningful data)
   useEffect(() => {
     if (materials.length > 0 && experienceId) {
-      const timer = setTimeout(() => {
-        saveMaterials(true)
-      }, 3000)
-      return () => clearTimeout(timer)
+      const hasData = materials.some(m => m.title || m.url || m.description || m.fileContent || m.fileName)
+      if (hasData) {
+        const timer = setTimeout(() => {
+          saveMaterials(true)
+        }, 3000)
+        return () => clearTimeout(timer)
+      }
     }
   }, [materials, experienceId])
 
   const saveMaterials = async (silent = false) => {
     if (!experienceId) return
     try {
-      await experienceAPI.saveMaterials(experienceId, materials)
+      // sanitize payload: drop temporary ids and blank entries
+      const payload = materials
+        // keep items that have any meaningful data: title/url/description or file content/name
+        .filter(m => m.title || m.url || m.description || m.fileContent || m.fileName)
+        .map(({ id, ...rest }) => rest)
+      const res = await experienceAPI.saveMaterials(experienceId, payload)
+      if (payload.length === 0) {
+        // do not wipe existing state when we deliberately sent an empty payload
+      } else if (res.data && res.data.materials && res.data.materials.materials) {
+        // server may have converted fileContent -> filePath; update state
+        setMaterials(res.data.materials.materials)
+      }
       if (!silent) {
         setSuccess('Materials saved!')
         setTimeout(() => setSuccess(''), 2000)
@@ -111,7 +125,7 @@ function ExperienceMaterialsForm() {
     setSubmitting(true)
 
     try {
-      // Final save of materials
+      // Final save of materials (ensure payload cleaned)
       await saveMaterials(true)
 
       // Submit for approval (Change status to pending)
@@ -428,24 +442,38 @@ function ExperienceMaterialsForm() {
 function MaterialInput({ material, index, onUpdate, onDelete }) {
   const fileInputRef = useRef(null)
 
-  const handleFileChange = (e) => {
+  const handleFileChange = async (e) => {
     const file = e.target.files[0]
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-        alert("File too large. Max 10MB.")
+      // allow up to 50MB documents
+      if (file.size > 50 * 1024 * 1024) {
+        alert("File too large. Max 50MB.")
         return
       }
 
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        onUpdate({
-          fileName: file.name,
-          fileType: file.type,
-          fileContent: reader.result,
-          url: '',
-        })
+      if (experienceId) {
+        try {
+          const res = await experienceAPI.uploadMaterial(experienceId, file)
+          // if server returned updated materials array, refresh state
+          if (res.data?.materials?.materials) {
+            setMaterials(res.data.materials.materials)
+          }
+        } catch (err) {
+          console.error('File upload failed', err)
+          alert('Upload failed')
+        }
+      } else {
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          onUpdate({
+            fileName: file.name,
+            fileType: file.type,
+            fileContent: reader.result,
+            url: '',
+          })
+        }
+        reader.readAsDataURL(file)
       }
-      reader.readAsDataURL(file)
     }
   }
 
@@ -515,7 +543,8 @@ function MaterialInput({ material, index, onUpdate, onDelete }) {
                     type="file"
                     ref={fileInputRef}
                     className="hidden"
-                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
+                    // accept common document/image types, pdf explicitly
+                    accept="application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/*"
                     onChange={handleFileChange}
                   />
 
@@ -524,6 +553,15 @@ function MaterialInput({ material, index, onUpdate, onDelete }) {
                       <CheckCircle className="mx-auto mb-3 text-green-600" size={48} />
                       <p className="text-green-800 font-bold text-lg mb-1 break-all px-4">{material.fileName}</p>
                       <p className="text-sm text-green-600 font-medium uppercase tracking-wide">{(material.fileType || 'Unknown Type').split('/')[1] || 'FILE'}</p>
+                      {material.filePath && (
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); window.open(material.filePath, '_blank') }}
+                          className="mt-2 px-4 py-2 bg-blue-50 text-blue-600 text-sm font-bold rounded-lg shadow-sm hover:bg-blue-100 border border-blue-200 hover:border-blue-300 transition-all"
+                        >
+                          View / Download
+                        </button>
+                      )}
 
                       <button
                         type="button"

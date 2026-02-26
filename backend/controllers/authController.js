@@ -41,6 +41,7 @@ export const signup = async (req, res) => {
       token,
       userId: user._id,
       role: user.role,
+      email: user.email, // return email for client-side use
     })
   } catch (error) {
     res.status(500).json({
@@ -89,6 +90,7 @@ export const login = async (req, res) => {
       userId: user._id,
       profileCompleted: user.profileCompleted,
       role: user.role,
+      email: user.email, // include email so UI can cache/prefill
     })
   } catch (error) {
     res.status(500).json({
@@ -103,12 +105,53 @@ export const authCallback = async (req, res) => {
     const token = generateToken(req.user._id, req.user.role)
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
 
-    res.redirect(`${frontendUrl}/oauth-success?token=${token}&userId=${req.user._id}&profileCompleted=${req.user.profileCompleted}&role=${req.user.role}`)
+    res.redirect(
+      `${frontendUrl}/oauth-success?token=${token}` +
+      `&userId=${req.user._id}` +
+      `&profileCompleted=${req.user.profileCompleted}` +
+      `&role=${req.user.role}` +
+      `&email=${encodeURIComponent(req.user.email)}`
+    )
   } catch (error) {
     res.status(500).json({
       success: false,
       message: error.message,
     })
+  }
+}
+
+// returns current authenticated user
+export const getMe = async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id
+    const user = await User.findById(userId).select('-password -resetPasswordToken -resetPasswordExpires')
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+    res.status(200).json({ success: true, user })
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message })
+  }
+}
+
+// allow users to update preference sub-object
+export const updatePreferences = async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user.id
+    const updates = req.body
+    const user = await User.findById(userId)
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' })
+    }
+
+    // merge only provided keys into preferences
+    user.preferences = { ...user.preferences.toObject(), ...updates }
+    await user.save()
+
+    res.status(200).json({ success: true, user })
+  } catch (error) {
+    console.error('Preferences update error:', error)
+    res.status(500).json({ success: false, message: error.message })
   }
 }
 

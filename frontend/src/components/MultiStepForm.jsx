@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import PersonalDetailsStep from './steps/PersonalDetailsStep'
 import AcademicDetailsStep from './steps/AcademicDetailsStep'
 import SkillsLinksStep from './steps/SkillsLinksStep'
 import PlacementStatusStep from './steps/PlacementStatusStep'
+import { authAPI } from '../services/api' // to fetch current user info
 
 const STEPS = [
   { id: 1, title: 'Personal Details', component: PersonalDetailsStep },
@@ -15,7 +16,7 @@ const STEPS = [
 
 function MultiStepForm({ onSubmit, isLoading }) {
   const [currentStep, setCurrentStep] = useState(1)
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     fullName: '',
     rollNumber: '',
     collegeEmail: localStorage.getItem('userEmail') || '',
@@ -32,13 +33,17 @@ function MultiStepForm({ onSubmit, isLoading }) {
     role: '',
     internshipType: 'full-time',
     willingToMentor: false,
-  })
+  }))
 
   const handleStepChange = (data) => {
-    setFormData((prev) => ({
-      ...prev,
-      ...data,
-    }))
+    setFormData((prev) => {
+      const updated = { ...prev, ...data }
+      // keep the localStorage copy of the email in sync
+      if (data.collegeEmail !== undefined) {
+        localStorage.setItem('userEmail', data.collegeEmail)
+      }
+      return updated
+    })
   }
 
   const handleNext = () => {
@@ -59,6 +64,26 @@ function MultiStepForm({ onSubmit, isLoading }) {
 
   const CurrentStepComponent = STEPS[currentStep - 1].component
   const progress = ((currentStep - 1) / STEPS.length) * 100
+
+  // ensure email spot is filled; if not in localStorage, fetch from server
+  useEffect(() => {
+    const stored = localStorage.getItem('userEmail')
+    if (stored && !formData.collegeEmail) {
+      setFormData((prev) => ({ ...prev, collegeEmail: stored }))
+    } else if (!stored) {
+      authAPI.getMe()
+        .then((res) => {
+          if (res.data.success && res.data.user?.email) {
+            const email = res.data.user.email
+            localStorage.setItem('userEmail', email)
+            setFormData((prev) => ({ ...prev, collegeEmail: email }))
+          }
+        })
+        .catch(() => {
+          // ignore - maybe not authenticated or network error
+        })
+    }
+  }, [formData.collegeEmail])
 
   return (
     <div className="bg-white rounded-2xl shadow-xl p-8">

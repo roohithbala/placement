@@ -52,6 +52,11 @@ const opportunitySchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // approved flag will be set by admins when they review new submissions
+    approved: {
+      type: Boolean,
+      default: false,
+    },
     status: {
       type: String,
       enum: ['draft', 'active', 'closed'],

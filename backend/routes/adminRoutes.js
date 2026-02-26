@@ -5,14 +5,25 @@ import {
     getManageableUsers,
     getStudents,
     getPlacedStudents,
-    getProblems,
+    // experiences instead of problems
+    getExperiences,
+    getProblems,         // legacy alias
     getStudentDetail,
-    getProblemDetail,
+    getExperienceDetail,
+    getProblemDetail,    // legacy alias
     deleteStudent,
-    deleteProblem,
+    deleteExperience,
+    deleteProblem,       // legacy alias
     getAllMeetings,
     updateMeeting,
-    getLogs
+    getLogs,
+    // new admin actions
+    getOpportunities,
+    approveOpportunity,
+    rejectOpportunity,
+    getOpportunityDetail,
+    updateOpportunity,
+    setExperienceStatus
 } from '../controllers/adminController.js'
 
 const router = express.Router()
@@ -25,16 +36,27 @@ router.get('/stats', getStats)
 router.get('/users', getManageableUsers)
 router.get('/students', getStudents)
 router.get('/placed-students', getPlacedStudents)
-router.get('/problems', getProblems)
+router.get('/experiences', getExperiences)
 router.get('/students/:id', getStudentDetail)
-router.get('/problems/:id', getProblemDetail)
+router.get('/experiences/:id', getExperienceDetail)
 router.delete('/students/:id', deleteStudent)
 router.delete('/users/:id', deleteStudent)
-router.post('/problems/:id/delete', deleteProblem) // Using POST for deletion to send 'reason' in body
+router.post('/experiences/:id/delete', deleteExperience) // Using POST for deletion to send 'reason' in body
 
 // Meetings management
 router.get('/meetings', getAllMeetings)
 router.put('/meetings/:id', updateMeeting)
+
+// Opportunity moderation
+// list may accept approved=true/false to filter
+router.get('/opportunities', getOpportunities)
+router.get('/opportunities/:id', getOpportunityDetail)
+router.put('/opportunities/:id', updateOpportunity)
+router.put('/opportunities/:id/approve', approveOpportunity)
+router.put('/opportunities/:id/reject', rejectOpportunity)
+
+// Experience moderation (status updates)
+router.put('/experiences/:id/status', setExperienceStatus)
 
 // System Logs
 router.get('/logs', getLogs)

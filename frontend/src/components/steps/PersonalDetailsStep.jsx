@@ -46,10 +46,13 @@ function PersonalDetailsStep({ formData, onChange }) {
           value={formData.collegeEmail}
           onChange={handleChange}
           placeholder="your.email@college.edu"
-          disabled
           className="w-full px-4 py-2.5 rounded-lg border border-gray-300 bg-gray-100 text-gray-600 cursor-not-allowed"
+          disabled
+          readOnly
         />
-        <p className="text-xs text-gray-500 mt-1">Your registered email cannot be changed</p>
+        <p className="text-xs text-gray-500 mt-1">
+          This email is pulled from your login method and cannot be changed here.
+        </p>
       </div>
 
       <div>

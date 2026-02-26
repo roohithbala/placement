@@ -1,11 +1,40 @@
-'use client';
+"use client"
+
+import { useState, useRef } from 'react'
+import { GLOBAL_COMPANIES, GLOBAL_ROLES } from '../../constants/companies'
 
 function PlacementStatusStep({ formData, onChange }) {
+  const [filteredCompanies, setFilteredCompanies] = useState([])
+  const [filteredRoles, setFilteredRoles] = useState([])
+  const [showCompanySuggestions, setShowCompanySuggestions] = useState(false)
+  const [showRoleSuggestions, setShowRoleSuggestions] = useState(false)
+  const companyRef = useRef(null)
+  const roleRef = useRef(null)
+
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
-    onChange({
-      [name]: type === 'checkbox' ? checked : value,
-    })
+    const newVal = type === 'checkbox' ? checked : value
+    onChange({ [name]: newVal })
+
+    if (name === 'company') {
+      if (value && value.length > 0) {
+        const q = value.toLowerCase()
+        setFilteredCompanies(GLOBAL_COMPANIES.filter((c) => c.toLowerCase().includes(q)).slice(0, 8))
+        setShowCompanySuggestions(true)
+      } else {
+        setShowCompanySuggestions(false)
+      }
+    }
+
+    if (name === 'role') {
+      if (value && value.length > 0) {
+        const q = value.toLowerCase()
+        setFilteredRoles(GLOBAL_ROLES.filter((r) => r.toLowerCase().includes(q)).slice(0, 8))
+        setShowRoleSuggestions(true)
+      } else {
+        setShowRoleSuggestions(false)
+      }
+    }
   }
 
   return (
@@ -47,32 +76,74 @@ function PlacementStatusStep({ formData, onChange }) {
 
       {/* Placed Details */}
       {formData.placementStatus === 'placed' && (
-        <div className="p-6 bg-green-50 border border-green-200 rounded-lg space-y-4">
+        <div className="p-6 bg-green-50 border border-green-200 rounded-lg space-y-4 relative">
           <h3 className="font-semibold text-green-900">Placement Details</h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">Company Name *</label>
               <input
                 type="text"
                 name="company"
                 value={formData.company}
                 onChange={handleChange}
+                ref={companyRef}
                 placeholder="e.g., Google, Microsoft"
+                autoComplete="off"
                 className="w-full px-4 py-2.5 rounded-lg border border-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
               />
+
+              {formData.company && (
+                <p className="mt-2 text-sm text-green-700">You entered: <span className="font-semibold">{formData.company}</span></p>
+              )}
+
+              {showCompanySuggestions && filteredCompanies.length > 0 && (
+                <ul className="absolute left-0 right-0 mt-1 bg-white border rounded shadow-sm max-h-44 overflow-auto z-50">
+                  {filteredCompanies.map((c) => (
+                    <li
+                      key={c}
+                      onMouseDown={() => {
+                        onChange({ company: c })
+                        setShowCompanySuggestions(false)
+                      }}
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                    >
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
 
-            <div>
+            <div className="relative">
               <label className="block text-sm font-medium text-gray-700 mb-2">Position/Role *</label>
               <input
                 type="text"
                 name="role"
                 value={formData.role}
                 onChange={handleChange}
+                ref={roleRef}
                 placeholder="e.g., Software Engineer"
+                autoComplete="off"
                 className="w-full px-4 py-2.5 rounded-lg border border-green-300 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
               />
+
+              {showRoleSuggestions && filteredRoles.length > 0 && (
+                <ul className="absolute left-0 right-0 mt-1 bg-white border rounded shadow-sm max-h-44 overflow-auto z-50">
+                  {filteredRoles.map((r) => (
+                    <li
+                      key={r}
+                      onMouseDown={() => {
+                        onChange({ role: r })
+                        setShowRoleSuggestions(false)
+                      }}
+                      className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                    >
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           </div>
 

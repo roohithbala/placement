@@ -62,7 +62,12 @@ export const listOpportunities = async (req, res) => {
     const limit = Number(req.query.limit) > 0 ? Math.min(Number(req.query.limit), 24) : 9
     const sortBy = SORT_MAP[req.query.sortBy] ? req.query.sortBy : 'recent'
 
+    // public listing only shows approved & active opportunities
     const filter = buildFilters(req.query)
+    if (!req.user || req.user.role !== 'admin') {
+      filter.approved = true
+    }
+
     const sort = SORT_MAP[sortBy]
 
     const [items, total, stats] = await Promise.all([
@@ -136,12 +141,13 @@ export const listOpportunities = async (req, res) => {
 
 export const getOpportunityFilters = async (_req, res) => {
   try {
-    const [categories, companies, types, locationTypes, experienceLevels] = await Promise.all([
+    const [categories, companies, types, locationTypes, experienceLevels, titles] = await Promise.all([
       Opportunity.distinct('category', { status: 'active' }),
       Opportunity.distinct('companyName', { status: 'active' }),
       Opportunity.distinct('opportunityType', { status: { $exists: true } }),
       Opportunity.distinct('locationType', { status: { $exists: true } }),
       Opportunity.distinct('experienceLevel', { status: { $exists: true } }),
+      Opportunity.distinct('title', { status: 'active' }),
     ])
 
     return res.json({
@@ -152,6 +158,7 @@ export const getOpportunityFilters = async (_req, res) => {
         types,
         locationTypes,
         experienceLevels,
+        titles,
       },
     })
   } catch (error) {
@@ -194,12 +201,14 @@ export const createOpportunity = async (req, res) => {
 
     const [profile, user] = await Promise.all([
       Profile.findOne({ userId }).lean(),
-      User.findById(userId, 'email').lean(),
+      User.findById(userId, 'email role').lean(),
     ])
     const payload = {
       ...req.body,
       postedBy: userId,
       postedByName: deriveDisplayName({ profileName: profile?.fullName, email: user?.email }),
+      // admin submissions auto-approved
+      approved: user.role === 'admin',
     }
 
     const opportunity = await Opportunity.create(payload)

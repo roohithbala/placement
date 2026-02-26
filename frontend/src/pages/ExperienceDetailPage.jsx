@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import MainLayout from '../components/MainLayout'
-import { experienceAPI } from '../services/api'
+import { experienceAPI, BACKEND_BASE_URL } from '../services/api'
 import {
     Briefcase, Calendar, CheckCircle, XCircle, Clock, Star,
     ArrowLeft, FileText, Download, User, Share2, Eye,
@@ -45,10 +45,16 @@ function ExperienceDetailPage() {
         }
     }
 
-    // Helper to download base64 file
+    // Helper to download/view material
     const downloadMaterial = (material) => {
-        if (material.url && !material.fileContent) {
-            window.open(material.url, '_blank');
+        if (material.filePath) {
+            const url = material.filePath.startsWith('http') ? material.filePath : BACKEND_BASE_URL + material.filePath
+            window.open(url, '_blank', 'noopener');
+            return;
+        }
+        if (material.url) {
+            const url = material.url.startsWith('http') ? material.url : BACKEND_BASE_URL + material.url
+            window.open(url, '_blank', 'noopener');
             return;
         }
 

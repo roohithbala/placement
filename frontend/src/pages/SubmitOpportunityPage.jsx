@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Send, Sparkles, Briefcase, BookmarkPlus } from 'lucide-react'
+import { Send, Sparkles, Briefcase, BookmarkPlus, Calendar } from 'lucide-react'
 import MainLayout from '../components/MainLayout'
 import { opportunitiesAPI } from '../services/api'
 
@@ -41,20 +41,32 @@ function SubmitOpportunityPage() {
   const [filters, setFilters] = useState(DEFAULT_FILTERS)
   const [loadingFilters, setLoadingFilters] = useState(false)
 
+  // suggestion/autocomplete state
+  const [titleSuggestions, setTitleSuggestions] = useState([])
+  const [companySuggestions, setCompanySuggestions] = useState([])
+  const [filteredTitles, setFilteredTitles] = useState([])
+  const [filteredCompanies, setFilteredCompanies] = useState([])
+  const [showTitleSuggestions, setShowTitleSuggestions] = useState(false)
+  const [showCompanySuggestions, setShowCompanySuggestions] = useState(false)
+
   useEffect(() => {
     const loadFilters = async () => {
       setLoadingFilters(true)
       try {
         const { data } = await opportunitiesAPI.getFilters()
         if (data.success) {
-          setFilters({
-            ...DEFAULT_FILTERS,
-            ...data.filters,
-            categories:
-              data.filters?.categories?.length > 0
-                ? data.filters.categories
-                : DEFAULT_FILTERS.categories,
-          })
+                  const merged = {
+              ...DEFAULT_FILTERS,
+              ...data.filters,
+              categories:
+                data.filters?.categories?.length > 0
+                  ? data.filters.categories
+                  : DEFAULT_FILTERS.categories,
+            }
+            setFilters(merged)
+            // suggestions arrays
+            setTitleSuggestions(merged.titles || [])
+            setCompanySuggestions(merged.companies || [])
         }
       } catch (error) {
         console.error('Failed to load opportunity filters', error)
@@ -83,6 +95,30 @@ function SubmitOpportunityPage() {
   const handleFormChange = (e) => {
     const { name, value } = e.target
     setFormData((prev) => ({ ...prev, [name]: value }))
+
+    // suggestion logic
+    if (name === 'title') {
+      if (value && value.length > 0) {
+        const q = value.toLowerCase()
+        setFilteredTitles(
+          titleSuggestions.filter((t) => t.toLowerCase().includes(q)).slice(0, 6)
+        )
+        setShowTitleSuggestions(true)
+      } else {
+        setShowTitleSuggestions(false)
+      }
+    }
+    if (name === 'companyName') {
+      if (value && value.length > 0) {
+        const q = value.toLowerCase()
+        setFilteredCompanies(
+          companySuggestions.filter((c) => c.toLowerCase().includes(q)).slice(0, 6)
+        )
+        setShowCompanySuggestions(true)
+      } else {
+        setShowCompanySuggestions(false)
+      }
+    }
   }
 
   const handleFormSubmit = async (e) => {
@@ -133,6 +169,7 @@ function SubmitOpportunityPage() {
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-semibold text-slate-600">Role title *</label>
+                  <div className="relative">
                   <input
                     name="title"
                     value={formData.title}
@@ -140,10 +177,29 @@ function SubmitOpportunityPage() {
                     required
                     className="w-full mt-1 rounded-2xl border border-[#d6e6ed] focus:ring-2 focus:ring-[#088395] px-4 py-3"
                     placeholder="Software Engineer"
+                    autoComplete="off"
                   />
+                  {showTitleSuggestions && filteredTitles.length > 0 && (
+                    <ul className="absolute left-0 right-0 mt-1 bg-white border rounded shadow-sm max-h-40 overflow-auto z-50">
+                      {filteredTitles.map((t) => (
+                        <li
+                          key={t}
+                          onMouseDown={() => {
+                            setFormData((prev) => ({ ...prev, title: t }))
+                            setShowTitleSuggestions(false)
+                          }}
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        >
+                          {t}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 </div>
                 <div>
                   <label className="text-sm font-semibold text-slate-600">Company *</label>
+                  <div className="relative">
                   <input
                     name="companyName"
                     value={formData.companyName}
@@ -151,7 +207,25 @@ function SubmitOpportunityPage() {
                     required
                     className="w-full mt-1 rounded-2xl border border-[#d6e6ed] focus:ring-2 focus:ring-[#088395] px-4 py-3"
                     placeholder="Company name"
+                    autoComplete="off"
                   />
+                  {showCompanySuggestions && filteredCompanies.length > 0 && (
+                    <ul className="absolute left-0 right-0 mt-1 bg-white border rounded shadow-sm max-h-40 overflow-auto z-50">
+                      {filteredCompanies.map((c) => (
+                        <li
+                          key={c}
+                          onMouseDown={() => {
+                            setFormData((prev) => ({ ...prev, companyName: c }))
+                            setShowCompanySuggestions(false)
+                          }}
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        >
+                          {c}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 </div>
               </div>
 
@@ -235,13 +309,17 @@ function SubmitOpportunityPage() {
 
               <div>
                 <label className="text-sm font-semibold text-slate-600">Deadline</label>
-                <input
-                  type="date"
-                  name="deadline"
-                  value={formData.deadline}
-                  onChange={handleFormChange}
-                  className="w-full mt-1 rounded-2xl border border-slate-200 px-4 py-3"
-                />
+                <div className="relative">
+                  <input
+                    type="date"
+                    name="deadline"
+                    value={formData.deadline}
+                    onChange={handleFormChange}
+                    className="w-full mt-1 rounded-2xl border border-slate-200 px-4 py-3 pr-10 appearance-none"
+                    style={{ WebkitAppearance: 'none', MozAppearance: 'textfield' }}
+                  />
+                  <Calendar className="w-5 h-5 text-slate-400 absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none" />
+                </div>
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">

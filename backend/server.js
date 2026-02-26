@@ -37,10 +37,18 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:3000',
   credentials: true,
 }))
-app.use(express.json())
+// body parser size limits (for encoded base64 materials etc)
+app.use(express.json({ limit: '200mb' }))
+app.use(express.urlencoded({ limit: '200mb', extended: true }))
 
-app.use(express.json({ limit: '50mb' }))
-app.use(express.urlencoded({ limit: '50mb', extended: true }))
+// static directory for uploaded files
+import path from 'path'
+import fs from 'fs'
+const uploadsDir = path.join(process.cwd(), 'uploads')
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true })
+}
+app.use('/uploads', express.static(uploadsDir))
 
 // Session configuration
 app.use(
@@ -63,41 +71,50 @@ app.use(passport.session())
 app.use(requestLogger)
 
 // Database connection
+const mongoUri = process.env.MONGODB_URI || 'mongodb://localhost:27017/placehub';
+
+// connect first, then register routes and start services
 mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch((err) => console.log('MongoDB connection error:', err))
+  .connect(mongoUri)
+  .then(() => {
+    console.log('MongoDB connected');
 
-// Routes
-app.use('/api/auth', authRoutes)
-app.use('/api/profile', profileRoutes)
-app.use('/api/experience', experienceRoutes)
-app.use('/api/messages', messageRoutes)
-app.use('/api/mentorship', mentorshipRoutes)
-app.use('/api/meetings', meetingRoutes)
-app.use('/api/questions', questionRoutes)
-app.use('/api/notifications', notificationRoutes)
-app.use('/api/admin', adminRoutes)
-app.use('/api/opportunities', opportunityRoutes)
-app.use('/api/password-reset', passwordResetRoutes)
+    // Routes (registered after DB is available)
+    app.use('/api/auth', authRoutes)
+    app.use('/api/profile', profileRoutes)
+    app.use('/api/experience', experienceRoutes)
+    app.use('/api/messages', messageRoutes)
+    app.use('/api/mentorship', mentorshipRoutes)
+    app.use('/api/meetings', meetingRoutes)
+    app.use('/api/questions', questionRoutes)
+    app.use('/api/notifications', notificationRoutes)
+    app.use('/api/admin', adminRoutes)
+    app.use('/api/opportunities', opportunityRoutes)
+    app.use('/api/password-reset', passwordResetRoutes)
 
-// Anon-Chat Routes
-app.use('/api/anon-questions', anonQuestionRoutes);
-app.use('/api/answers', answerRoutes);
-app.use('/api/sessions', sessionRoutes);
+    // Anon-Chat Routes
+    app.use('/api/anon-questions', anonQuestionRoutes);
+    app.use('/api/answers', answerRoutes);
+    app.use('/api/sessions', sessionRoutes);
 
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK' })
-})
+    // Health check
+    app.get('/api/health', (req, res) => {
+      res.json({ status: 'OK' })
+    })
 
-const server = http.createServer(app);
-setupWebSocket(server);
+    const server = http.createServer(app);
+    setupWebSocket(server);
 
-// Start auto-archive scheduler
-startArchiveScheduler();
-// Start server
-const PORT = process.env.PORT || 5000
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`)
-})
+    // Start auto-archive scheduler
+    startArchiveScheduler();
+
+    // Start server
+    const PORT = process.env.PORT || 5000
+    server.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`)
+    })
+  })
+  .catch((err) => {
+    console.error('MongoDB connection error:', err);
+    process.exit(1);
+  });

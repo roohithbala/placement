@@ -1,6 +1,8 @@
 import axios from 'axios'
 
-const API_BASE_URL = 'http://localhost:5000/api'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+// also compute backend origin for static assets
+const BACKEND_BASE_URL = API_BASE_URL.replace(/\/api$/, '')
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -8,6 +10,8 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
 })
+
+export { BACKEND_BASE_URL }
 
 // Add token to requests
 api.interceptors.request.use(
@@ -43,6 +47,14 @@ export const experienceAPI = {
   saveDraft: (data) => api.post('/experience/draft', data),
   saveRounds: (experienceId, rounds) => api.post(`/experience/rounds/${experienceId}`, { rounds }),
   saveMaterials: (experienceId, materials) => api.post(`/experience/materials/${experienceId}`, { materials }),
+  uploadMaterial: (experienceId, file) => {
+    const form = new FormData()
+    form.append('file', file)
+    // if the caller knows existing materials, they can stringify and send
+    return api.post(`/experience/materials/${experienceId}`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+  },
   submit: (experienceId) => api.post(`/experience/submit/${experienceId}`),
 
   // Existing/Updated Methods
@@ -123,15 +135,31 @@ export const adminAPI = {
   getUsers: (params) => api.get('/admin/users', { params }),
   getStudents: (params) => api.get('/admin/students', { params }),
   getPlacedStudents: (params) => api.get('/admin/placed-students', { params }),
-  getProblems: (params) => api.get('/admin/problems', { params }),
+  // experience moderation routes (formerly called "problems")
+  getExperiences: (params) => api.get('/admin/experiences', { params }),
   getStudentDetail: (id) => api.get(`/admin/students/${id}`),
-  getProblemDetail: (id) => api.get(`/admin/problems/${id}`),
+  getExperienceDetail: (id) => api.get(`/admin/experiences/${id}`),
   deleteUser: (id) => api.delete(`/admin/users/${id}`),
   deleteStudent: (id) => api.delete(`/admin/students/${id}`),
-  deleteProblem: (id, reason) => api.post(`/admin/problems/${id}/delete`, { reason }),
+  deleteExperience: (id, reason) => api.post(`/admin/experiences/${id}/delete`, { reason }),
+  // legacy aliases for backwards compatibility
+  getProblems: (params) => api.get('/admin/experiences', { params }),
+  getProblemDetail: (id) => api.get(`/admin/experiences/${id}`),
+  deleteProblem: (id, reason) => api.post(`/admin/experiences/${id}/delete`, { reason }),
   getMeetings: () => api.get('/admin/meetings'),
   updateMeeting: (id, data) => api.put(`/admin/meetings/${id}`, data),
   getLogs: (params) => api.get('/admin/logs', { params }),
+  // opportunity moderation
+  // admin opportunities listing; params may include page, search, approved=true|false
+  getOpportunities: (params) => api.get('/admin/opportunities', { params }),
+  // legacy alias for pending-only convenience
+  getPendingOpportunities: (params) => api.get('/admin/opportunities', { params: { ...params, approved: false } }),
+  getOpportunityDetail: (id) => api.get(`/admin/opportunities/${id}`),
+  updateOpportunity: (id, updates) => api.put(`/admin/opportunities/${id}`, updates),
+  approveOpportunity: (id) => api.put(`/admin/opportunities/${id}/approve`),
+  rejectOpportunity: (id) => api.put(`/admin/opportunities/${id}/reject`),
+  // experience moderation (status)
+  setExperienceStatus: (id, status) => api.put(`/admin/experiences/${id}/status`, { status }),
 }
 
 // Anonymous Chat APIs (kept separate from Q&A forum)

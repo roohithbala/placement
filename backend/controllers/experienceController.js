@@ -117,7 +117,26 @@ export const saveExperienceMaterials = async (req, res) => {
   try {
     const userId = req.user.id || req.user.userId
     const { experienceId } = req.params
-    const { materials } = req.body
+    // multer may have placed file info in req.file
+    // body may contain `materials` JSON when using base64 flow
+    let materials = []
+    if (req.body.materials) {
+      try {
+        materials = typeof req.body.materials === 'string' ? JSON.parse(req.body.materials) : req.body.materials
+      } catch {} // ignore parse errors
+    }
+
+    // if multer provided a single file, convert to material object and append
+    if (req.file) {
+      const fileUrl = `/uploads/experiences/${req.file.filename}`
+      materials.push({
+        type: 'document',
+        title: req.file.originalname,
+        filePath: fileUrl,
+        fileName: req.file.originalname,
+        fileType: req.file.mimetype
+      })
+    }
 
     if (!experienceId) {
       return res.status(400).json({ success: false, message: 'Experience ID is required' })
@@ -129,13 +148,48 @@ export const saveExperienceMaterials = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Experience not found' })
     }
 
+    // if any materials still contain base64 fileContent, process them as before
+    const fs = await import('fs')
+    const path = await import('path')
+    const uploadsBase = path.join(process.cwd(), 'uploads', 'experiences')
+    if (!fs.existsSync(uploadsBase)) {
+      fs.mkdirSync(uploadsBase, { recursive: true })
+    }
+
+    const sanitized = Array.isArray(materials) ? materials.map(m => {
+      if (m && typeof m === 'object') {
+        // preserve existing path entries
+        if (m.filePath) return m
+        if (m.fileContent && m.fileName) {
+          try {
+            const match = /^data:(.+?);base64,(.*)$/.exec(m.fileContent)
+            const b64 = match ? match[2] : m.fileContent
+            const buffer = Buffer.from(b64, 'base64')
+            const safeName = m.fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+            const uniqueName = `${Date.now()}_${safeName}`
+            const destPath = path.join(uploadsBase, uniqueName)
+            fs.writeFileSync(destPath, buffer)
+            return {
+              ...m,
+              filePath: `/uploads/experiences/${uniqueName}`,
+              fileContent: undefined
+            }
+          } catch (fileErr) {
+            console.error('Error saving uploaded file', fileErr)
+            return m
+          }
+        }
+      }
+      return m
+    }) : []
+
     const experienceMaterials = await ExperienceMaterial.findOneAndUpdate(
       { experienceId },
       {
         $set: {
           experienceId,
           userId,
-          materials: Array.isArray(materials) ? materials : []
+          materials: sanitized
         }
       },
       { new: true, upsert: true }
