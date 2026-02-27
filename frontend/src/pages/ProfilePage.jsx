@@ -57,6 +57,13 @@ function ProfilePage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [updatingMentor, setUpdatingMentor] = useState(false);
+
+  // determine if the profile belongs to the logged-in user
+  const currentUserId = localStorage.getItem('userId');
+  const isOwnProfile = profile && (
+    profile.userId === currentUserId || profile.userId?._id === currentUserId
+  );
 
   useEffect(() => {
     fetchProfile();
@@ -85,7 +92,8 @@ function ProfilePage() {
       }
 
       const data = await response.json();
-      setProfile(data.profile || data);
+      const prof = data.profile || data;
+      setProfile(prof);
       setError(null);
     } catch (err) {
       setError(err.message);
@@ -329,19 +337,53 @@ function ProfilePage() {
           </Card>
         )}
 
-        {/* Mentor Status */}
-        <Card>
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-bold text-primary mb-1">Willing to Mentor</h3>
-              <p className="text-gray-600">Help junior students with guidance</p>
+        {/* Mentor Status (visible only if placed) */}
+        {profile.placementStatus === 'placed' && (
+          <Card>
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-bold text-primary mb-1">Willing to Mentor</h3>
+                <p className="text-gray-600">Help junior students with guidance</p>
+              </div>
+              {isOwnProfile ? (
+                <label className={`relative inline-flex items-center cursor-pointer ${updatingMentor ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={profile.willingToMentor}
+                    onChange={async () => {
+                      try {
+                        setUpdatingMentor(true);
+                        const token = localStorage.getItem('authToken');
+                        const res = await fetch('http://localhost:5000/api/profile', {
+                          method: 'PUT',
+                          headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json',
+                          },
+                          body: JSON.stringify({ willingToMentor: !profile.willingToMentor }),
+                        });
+                        if (!res.ok) throw new Error('Update failed');
+                        const resp = await res.json();
+                        setProfile(resp.profile || resp);
+                      } catch (err) {
+                        console.error('Failed to update mentor status', err);
+                      } finally {
+                        setUpdatingMentor(false);
+                      }
+                    }}
+                    disabled={updatingMentor}
+                    className="sr-only peer"
+                  />
+                  <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-secondary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-secondary"></div>
+                </label>
+              ) : (
+                <div className={`px-4 py-2 rounded-full font-bold text-white ${profile.willingToMentor ? 'bg-green-500' : 'bg-gray-400'}`}>
+                  {profile.willingToMentor ? 'Yes' : 'No'}
+                </div>
+              )}
             </div>
-            <div className={`px-4 py-2 rounded-full font-bold text-white ${profile.willingToMentor ? 'bg-green-500' : 'bg-gray-400'}`}>
-              {profile.willingToMentor ? 'Yes' : 'No'}
-            </div>
-          </div>
-        </Card>
-
+          </Card>
+        )}
       </div>
     </MainLayout>
   );

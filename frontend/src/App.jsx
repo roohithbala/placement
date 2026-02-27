@@ -19,7 +19,7 @@ import MeetingsPage from './pages/MeetingsPage.jsx'
 import QuestionsPage from './pages/QuestionsPage.jsx'
 import VideoMeetingPage from './pages/VideoMeetingPage.jsx'
 import AdminDashboardPage from './pages/AdminDashboardPage.jsx'
-import UnderDevelopmentPage from './pages/UnderDevelopmentPage.jsx'
+import AnalyticsPage from './pages/AnalyticsPage.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import AdminRoute from './components/AdminRoute.jsx'
 import './App.css'
@@ -144,7 +144,7 @@ function App() {
 
         {/* Under Development Routes */}
 
-        <Route path="/analytics" element={<ProtectedRoute><UnderDevelopmentPage /></ProtectedRoute>} />
+        <Route path="/analytics" element={<ProtectedRoute><AnalyticsPage /></ProtectedRoute>} />
 
         <Route path="/contact" element={<ProtectedRoute><ContactPage /></ProtectedRoute>} />
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react'
+import { useLocation } from 'react-router-dom'
 import MainLayout from '../components/MainLayout'
 import { MessageCircle, Send, Paperclip, X, Plus, Search } from 'lucide-react'
 import { messageAPI, mentorshipAPI } from '../services/api'
@@ -24,9 +25,20 @@ function MessagesPage() {
     setTimeout(() => setNotification(null), 5000)
   }
 
+  const location = useLocation()
+
   useEffect(() => {
     fetchConversations()
   }, [])
+
+  // handle navigation state (e.g. from MeetingsPage) to preselect a conversation
+  useEffect(() => {
+    if (location.state?.conversation) {
+      setSelectedConversation(location.state.conversation)
+      // clear state so it doesn't persist on back/refresh
+      window.history.replaceState({}, document.title)
+    }
+  }, [location.state])
 
   useEffect(() => {
     if (selectedConversation) {

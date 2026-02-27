@@ -30,6 +30,7 @@ function EditProfile() {
     linkedinUrl: "",
     githubUrl: "",
     skills: [],
+    placementStatus: "not-placed", // added so user can update later
     willingToMentor: false,
     profilePicture: "", // optional - url or future file upload
   });
@@ -92,6 +93,7 @@ function EditProfile() {
         linkedinUrl: profile.linkedinUrl || "",
         githubUrl: profile.githubUrl || "",
         skills: profile.skills || [],
+        placementStatus: profile.placementStatus || "not-placed",
         willingToMentor: profile.willingToMentor || false,
         profilePicture: profile.profilePicture || "",
       });
@@ -607,29 +609,66 @@ function EditProfile() {
               </div>
             </section>
 
-            {/* Mentor Toggle */}
+            {/* Placement Status Section */}
             <section className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">
-                    Willing to Mentor
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    Help guide junior students with projects, placements, or career advice
-                  </p>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">
+                Placement Status
+              </h3>
+              <div className="space-y-3">
+                <label className="flex items-center">
                   <input
-                    type="checkbox"
-                    name="willingToMentor"
-                    checked={formData.willingToMentor}
+                    type="radio"
+                    name="placementStatus"
+                    value="not-placed"
+                    checked={formData.placementStatus === 'not-placed'}
                     onChange={handleChange}
-                    className="sr-only peer"
+                    className="w-4 h-4 text-secondary"
                   />
-                  <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-secondary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-secondary"></div>
+                  <span className="ml-2 text-gray-700">Not Placed Yet</span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="placementStatus"
+                    value="placed"
+                    checked={formData.placementStatus === 'placed'}
+                    onChange={handleChange}
+                    className="w-4 h-4 text-secondary"
+                  />
+                  <span className="ml-2 text-gray-700">Already Placed</span>
                 </label>
               </div>
             </section>
+
+            {/* Mentor Toggle - only show if user is marked placed */}
+            {formData.placementStatus === 'placed' ? (
+              <section className="bg-gray-50 p-6 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-800">
+                      Willing to Mentor
+                    </h3>
+                    <p className="text-gray-600 text-sm">
+                      Help guide junior students with projects, placements, or career advice
+                    </p>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="willingToMentor"
+                      checked={formData.willingToMentor}
+                      onChange={handleChange}
+                      className="sr-only peer"
+                    />
+                    <div className="w-14 h-7 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-secondary/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[4px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-secondary"></div>
+                  </label>
+                </div>
+              </section>
+            ) : (
+              <section className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-gray-600 italic">
+                You can opt into mentoring after you update your status to <strong>placed</strong>.
+              </section>
+            )}
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">

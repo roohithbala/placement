@@ -76,6 +76,15 @@ export const updateProfile = async (req, res) => {
       })
     }
 
+    // Enforce business rules before updating
+    // a user must already be marked placed in their existing profile to turn mentoring on
+    if (profileData.willingToMentor && profile.placementStatus !== 'placed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Users can only opt‑in to mentor after they are marked placed',
+      })
+    }
+
     // Update profile fields
     Object.assign(profile, profileData)
     profile.updatedAt = new Date()
