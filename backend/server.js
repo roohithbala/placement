@@ -38,8 +38,11 @@ app.use(express.urlencoded({ limit: '200mb', extended: true }))
 // static directory for uploaded files
 import path from 'path'
 import fs from 'fs'
-const uploadsDir = path.join(process.cwd(), 'uploads')
-if (!fs.existsSync(uploadsDir)) {
+const uploadsDir = process.env.VERCEL 
+  ? '/tmp' 
+  : path.join(process.cwd(), 'uploads')
+
+if (!process.env.VERCEL && !fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir, { recursive: true })
 }
 app.use('/uploads', express.static(uploadsDir))

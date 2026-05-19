@@ -151,8 +151,10 @@ export const saveExperienceMaterials = async (req, res) => {
     // if any materials still contain base64 fileContent, process them as before
     const fs = await import('fs')
     const path = await import('path')
-    const uploadsBase = path.join(process.cwd(), 'uploads', 'experiences')
-    if (!fs.existsSync(uploadsBase)) {
+    const uploadsBase = process.env.VERCEL 
+      ? '/tmp' 
+      : path.join(process.cwd(), 'uploads', 'experiences')
+    if (!process.env.VERCEL && !fs.existsSync(uploadsBase)) {
       fs.mkdirSync(uploadsBase, { recursive: true })
     }
 
