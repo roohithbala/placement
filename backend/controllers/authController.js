@@ -2,7 +2,6 @@ import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { validateSignupData, validateLoginData } from '../utils/validationUtils.js'
-import { sendPasswordResetEmail, sendPasswordResetConfirmation as sendPasswordResetSuccessEmail } from '../services/brevoEmailService.js'
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' })
@@ -178,24 +177,13 @@ export const forgotPassword = async (req, res) => {
     await user.save()
     console.log('Token saved to database')
 
-    try {
-      await sendPasswordResetEmail(user.email, resetToken)
-      console.log(`Password reset email sent to: ${user.email}`)
-    } catch (emailError) {
-      console.error('Email sending failed:', emailError)
-      user.resetPasswordToken = undefined
-      user.resetPasswordExpires = undefined
-      await user.save()
-      
-      return res.status(500).json({
-        success: false,
-        message: 'Failed to send reset email. Please try again later.',
-      })
-    }
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`
 
     res.status(200).json({
       success: true,
-      message: 'Password reset link has been sent to your email.',
+      message: 'Password reset link has been generated.',
+      resetLink
     })
   } catch (error) {
     console.error('Forgot password error:', error)
@@ -249,8 +237,6 @@ export const resetPassword = async (req, res) => {
     user.resetPasswordToken = undefined
     user.resetPasswordExpires = undefined
     await user.save()
-
-    sendPasswordResetSuccessEmail(user.email).catch(console.error)
 
     res.status(200).json({
       success: true,
