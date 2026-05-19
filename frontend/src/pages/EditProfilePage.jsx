@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, Save, Loader, X, Camera, Trash2 } from "lucide-react";
 import MainLayout from "../components/MainLayout";
+import { profileAPI } from "../services/api";
 import '../index.css';
 
 const Card = ({ children, className = "" }) => (
@@ -61,23 +62,8 @@ function EditProfile() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        setError("No authentication token found. Please login again.");
-        return;
-      }
-
-      const res = await fetch("http://localhost:5000/api/profile", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to load profile");
-
-      const data = await res.json();
-      const profile = data.profile || data;
+      const res = await profileAPI.get();
+      const profile = res.data.profile || res.data;
 
       setFormData({
         fullName: profile.fullName || "",
@@ -199,37 +185,9 @@ function EditProfile() {
     setSuccess(false);
 
     try {
-      const token = localStorage.getItem("authToken");
-
-      if (!token) {
-        throw new Error("Authentication token not found. Please login again.");
-      }
-
       // Send to backend with PUT method
-      const res = await fetch("http://localhost:5000/api/profile", {
-        method: "PUT",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-
-        // Handle validation errors from backend
-        if (errData.errors) {
-          const errorMessages = Object.entries(errData.errors)
-            .map(([field, message]) => `${field}: ${message}`)
-            .join("\n");
-          throw new Error(errorMessages || errData.message || "Validation failed");
-        }
-
-        throw new Error(errData.message || "Failed to update profile");
-      }
-
-      const data = await res.json();
+      const res = await profileAPI.update(formData);
+      const data = res.data;
 
       // Update localStorage with new profile data
       localStorage.setItem('user', JSON.stringify({
@@ -243,7 +201,15 @@ function EditProfile() {
       setSuccess(true);
       setTimeout(() => navigate("/profile"), 2000);
     } catch (err) {
-      setError(err.message);
+      const errData = err.response?.data || {};
+      if (errData.errors) {
+        const errorMessages = Object.entries(errData.errors)
+          .map(([field, message]) => `${field}: ${message}`)
+          .join("\n");
+        setError(errorMessages || errData.message || "Validation failed");
+      } else {
+        setError(errData.message || err.message || "Failed to update profile");
+      }
     } finally {
       setSaving(false);
     }

@@ -2,7 +2,7 @@ import User from '../models/User.js'
 import jwt from 'jsonwebtoken'
 import crypto from 'crypto'
 import { validateSignupData, validateLoginData } from '../utils/validationUtils.js'
-import { sendPasswordResetEmail, sendPasswordResetSuccessEmail } from '../utils/emailService.js'
+import { sendPasswordResetEmail, sendPasswordResetConfirmation as sendPasswordResetSuccessEmail } from '../services/brevoEmailService.js'
 
 const generateToken = (userId, role) => {
   return jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' })
@@ -92,26 +92,6 @@ export const login = async (req, res) => {
       role: user.role,
       email: user.email, // include email so UI can cache/prefill
     })
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    })
-  }
-}
-
-export const authCallback = async (req, res) => {
-  try {
-    const token = generateToken(req.user._id, req.user.role)
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000'
-
-    res.redirect(
-      `${frontendUrl}/oauth-success?token=${token}` +
-      `&userId=${req.user._id}` +
-      `&profileCompleted=${req.user.profileCompleted}` +
-      `&role=${req.user.role}` +
-      `&email=${encodeURIComponent(req.user.email)}`
-    )
   } catch (error) {
     res.status(500).json({
       success: false,

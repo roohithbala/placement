@@ -3,7 +3,7 @@ import { QuestionInbox } from "./QuestionInbox";
 import { ChatThread } from "./ChatThread";
 import { CreateQuestionFlow } from "./CreateQuestionFlow";
 import { cn } from "../../lib/utils";
-import { anonQuestionService, answerService, sessionService } from "../../services/api";
+import { anonQuestionService, answerService, sessionService, BACKEND_BASE_URL } from "../../services/api";
 
 const ANIMALS = ["🦊", "🐼", "🦁", "🐨", "🦉", "🐸", "🦋", "🐙", "🦜", "🐢", "🦈", "🐝"];
 
@@ -39,33 +39,67 @@ export const ChatContainer = ({ className }) => {
 
         fetchQuestions();
 
-        // Setup WebSocket
-        const socket = new WebSocket('ws://localhost:5000');
-        socket.onopen = () => console.log('WebSocket Connected');
-        socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'ANSWER_RECEIVED') {
-                const answer = data.payload;
-                if (answer.questionId === selectedQuestionId) {
-                    setMessages(prev => [...prev, answer]);
-                }
-                setQuestions(prev => prev.map(q => {
-                    const qId = q._id || q.id;
-                    return (qId === answer.questionId)
-                        ? { ...q, answerCount: (q.answerCount || 0) + 1 }
-                        : q;
-                }));
-            }
-            if (data.type === 'REACTION_UPDATED') {
-                const { answerId, reactions } = data.payload;
-                setMessages(prev => prev.map(m =>
-                    (m._id === answerId) ? { ...m, reactions } : m
-                ));
+        // Setup WebSocket and dynamic fallback to HTTP polling
+        const wsUrl = BACKEND_BASE_URL.startsWith('http')
+            ? BACKEND_BASE_URL.replace(/^http/, 'ws')
+            : `ws://localhost:5000`;
+
+        let socket;
+        let intervalId;
+
+        const startPolling = () => {
+            if (selectedQuestionId && !intervalId) {
+                intervalId = setInterval(() => {
+                    fetchAnswers(selectedQuestionId);
+                }, 5000);
             }
         };
-        socketRef.current = socket;
 
-        return () => socket.close();
+        try {
+            socket = new WebSocket(wsUrl);
+            socket.onopen = () => console.log('WebSocket Connected');
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'ANSWER_RECEIVED') {
+                    const answer = data.payload;
+                    if (answer.questionId === selectedQuestionId) {
+                        setMessages(prev => {
+                            if (prev.some(m => m._id === answer._id)) return prev;
+                            return [...prev, answer];
+                        });
+                    }
+                    setQuestions(prev => prev.map(q => {
+                        const qId = q._id || q.id;
+                        return (qId === answer.questionId)
+                            ? { ...q, answerCount: (q.answerCount || 0) + 1 }
+                            : q;
+                    }));
+                }
+                if (data.type === 'REACTION_UPDATED') {
+                    const { answerId, reactions } = data.payload;
+                    setMessages(prev => prev.map(m =>
+                        (m._id === answerId) ? { ...m, reactions } : m
+                    ));
+                }
+            };
+            socket.onclose = () => {
+                console.log('WebSocket closed, switching to polling');
+                startPolling();
+            };
+            socket.onerror = (err) => {
+                console.warn('WebSocket error, switching to polling', err);
+                startPolling();
+            };
+            socketRef.current = socket;
+        } catch (error) {
+            console.warn('WebSocket init failed, switching to polling', error);
+            startPolling();
+        }
+
+        return () => {
+            if (socket) socket.close();
+            if (intervalId) clearInterval(intervalId);
+        };
     }, [selectedQuestionId]);
 
     const fetchQuestions = async () => {
@@ -119,7 +153,7 @@ export const ChatContainer = ({ className }) => {
         }
     };
 
-    const handleSendMessage = (content, imageUrl) => {
+    const handleSendMessage = async (content, imageUrl) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             socketRef.current.send(JSON.stringify({
                 type: 'NEW_ANSWER',
@@ -131,10 +165,32 @@ export const ChatContainer = ({ className }) => {
                     imageUrl
                 }
             }));
+        } else {
+            try {
+                const res = await answerService.createAnswer({
+                    questionId: selectedQuestionId,
+                    text: content,
+                    senderIcon: sessionIcon,
+                    sessionId: localStorage.getItem('anonq_session_id'),
+                    imageUrl
+                });
+                setMessages(prev => {
+                    if (prev.some(m => m._id === res.data._id)) return prev;
+                    return [...prev, res.data];
+                });
+                setQuestions(prev => prev.map(q => {
+                    const qId = q._id || q.id;
+                    return (qId === selectedQuestionId)
+                        ? { ...q, answerCount: (q.answerCount || 0) + 1 }
+                        : q;
+                }));
+            } catch (error) {
+                console.error("Error posting answer via HTTP:", error);
+            }
         }
     };
 
-    const handleReact = (answerId, type) => {
+    const handleReact = async (answerId, type) => {
         if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
             socketRef.current.send(JSON.stringify({
                 type: 'REACTION',
@@ -143,6 +199,15 @@ export const ChatContainer = ({ className }) => {
                     reaction: type // 'helpful', 'clear', or 'smart'
                 }
             }));
+        } else {
+            try {
+                const res = await answerService.reactToAnswer(answerId, type);
+                setMessages(prev => prev.map(m =>
+                    (m._id === answerId) ? { ...m, reactions: res.data.reactions } : m
+                ));
+            } catch (error) {
+                console.error("Error reacting to answer via HTTP:", error);
+            }
         }
     };
 

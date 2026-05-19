@@ -171,6 +171,8 @@ export const anonQuestionService = {
 
 export const answerService = {
   getAnswers: (questionId) => api.get(`/answers/${questionId}`),
+  createAnswer: (data) => api.post('/answers', data),
+  reactToAnswer: (answerId, reaction) => api.post(`/answers/${answerId}/react`, { reaction }),
 }
 
 export const sessionService = {

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { FileText, Briefcase, BookOpen, Users, MapPin, Calendar, Mail, Phone, Loader, Edit } from 'lucide-react'
 import MainLayout from '../components/MainLayout'
 import { useNavigate } from 'react-router-dom'
+import { profileAPI } from '../services/api'
 import '../index.css'
 const Card = ({ children, className = "" }) => (
   <div className={`bg-white rounded-xl shadow-lg p-6 border border-gray-100 hover:shadow-xl transition-all ${className}`}>
@@ -72,31 +73,12 @@ function ProfilePage() {
   const fetchProfile = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('authToken');
-      
-      if (!token) {
-        setError('No authentication token found');
-        return;
-      }
-
-      const response = await fetch('http://localhost:5000/api/profile', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch profile: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const prof = data.profile || data;
+      const response = await profileAPI.get();
+      const prof = response.data.profile || response.data;
       setProfile(prof);
       setError(null);
     } catch (err) {
-      setError(err.message);
+      setError(err.response?.data?.message || err.message);
       console.error('Profile fetch error:', err);
     } finally {
       setLoading(false);
@@ -353,18 +335,8 @@ function ProfilePage() {
                     onChange={async () => {
                       try {
                         setUpdatingMentor(true);
-                        const token = localStorage.getItem('authToken');
-                        const res = await fetch('http://localhost:5000/api/profile', {
-                          method: 'PUT',
-                          headers: {
-                            Authorization: `Bearer ${token}`,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({ willingToMentor: !profile.willingToMentor }),
-                        });
-                        if (!res.ok) throw new Error('Update failed');
-                        const resp = await res.json();
-                        setProfile(resp.profile || resp);
+                        const res = await profileAPI.update({ willingToMentor: !profile.willingToMentor });
+                        setProfile(res.data.profile || res.data);
                       } catch (err) {
                         console.error('Failed to update mentor status', err);
                       } finally {

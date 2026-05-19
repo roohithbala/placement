@@ -4,7 +4,6 @@ import LoginPage from './pages/LoginPage.jsx'
 import SignupPage from './pages/SignupPage.jsx'
 import ForgotPasswordPage from './pages/ForgotPasswordPage.jsx'
 import ResetPasswordPage from './pages/ResetPasswordPage.jsx'
-import OAuthSuccessPage from './pages/OAuthSuccessPage.jsx'
 import ProfileSetupPage from './pages/ProfileSetupPage.jsx'
 import DashboardPage from './pages/DashboardPage.jsx'
 import ProfilePage from './pages/ProfilePage.jsx'
@@ -55,7 +54,6 @@ function App() {
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-        <Route path="/oauth-success" element={<OAuthSuccessPage />} />
         <Route
           path="/profile-setup"
           element={<ProtectedRoute><ProfileSetupPage /></ProtectedRoute>}

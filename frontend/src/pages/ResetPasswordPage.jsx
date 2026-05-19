@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import { Lock, Eye, EyeOff, CheckCircle, XCircle } from 'lucide-react';
-import axios from 'axios';
+import api from '../services/api';
 
 const ResetPasswordPage = () => {
   const [searchParams] = useSearchParams();
@@ -35,8 +35,8 @@ const ResetPasswordPage = () => {
       }
 
       try {
-        const response = await axios.get(
-          `http://localhost:5000/api/auth/verify-reset-token/${token}`
+        const response = await api.get(
+          `/auth/verify-reset-token/${token}`
         );
         if (response.data.success) {
           setTokenValid(true);
@@ -100,7 +100,7 @@ const ResetPasswordPage = () => {
     }
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/reset-password', {
+      const response = await api.post('/auth/reset-password', {
         token,
         password: formData.password,
         confirmPassword: formData.confirmPassword,
